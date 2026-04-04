@@ -1,0 +1,14 @@
+## Core 
+npx sequelize-auto -h localhost -d dev-cmdv -u admin -x admin123 -p 5432 --dialect postgres -o ./src/database/core -l ts --schema core --camelCase --useDefine
+
+## Medical
+npx sequelize-auto -h localhost -d dev-cmdv -u admin -x admin123 -p 5432 --dialect postgres -o ./src/database/medical -l ts --schema medical --camelCase --useDefine
+
+## Inventory
+npx sequelize-auto -h localhost -d dev-cmdv -u admin -x admin123 -p 5432 --dialect postgres -o ./src/database/inventory -l ts --schema inventory --camelCase --useDefine
+
+## Billing
+npx sequelize-auto -h localhost -d dev-cmdv -u admin -x admin123 -p 5432 --dialect postgres -o ./src/database/billing -l ts --schema billing --camelCase --useDefine
+
+## Config 
+npx sequelize-auto -h localhost -d dev-cmdv -u admin -x admin123 -p 5432 --dialect postgres -o ./src/database/config -l ts --schema config --camelCase --useDefine

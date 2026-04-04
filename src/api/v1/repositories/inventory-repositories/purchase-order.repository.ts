@@ -1,0 +1,217 @@
+import { models, sequelize } from '../../../../database';
+import { purchase_orders, purchase_ordersCreationAttributes } from '../../../../database/inventory/purchase_orders';
+import { purchase_order_details, purchase_order_detailsAttributes } from '../../../../database/inventory/purchase_order_details';
+import { secureLogger } from '../../../../utils/secure-logger.utils';
+import { Transaction } from 'sequelize';
+import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Purchase Order Repository
+ */
+export class PurchaseOrderRepository {
+    /**
+     * Find all purchase orders
+     */
+    static async findAll(page: number = 1, limit: number = 50): Promise<{ orders: purchase_orders[], total: number }> {
+        try {
+            const offset = (page - 1) * limit;
+
+            const { rows, count } = await models.purchase_orders.findAndCountAll({
+                include: [
+                    {
+                        model: models.suppliers,
+                        as: 'supplier',
+                        attributes: ['id', 'business_name', 'code']
+                    },
+                    {
+                        model: models.warehouses,
+                        as: 'warehouse',
+                        attributes: ['id', 'name', 'code']
+                    },
+                    {
+                        model: models.users,
+                        as: 'created_by_user',
+                        attributes: ['id', 'full_name']
+                    }
+                ],
+                limit,
+                offset,
+                order: [['created_at', 'DESC']]
+            });
+
+            return { orders: rows, total: count };
+        } catch (error) {
+            secureLogger.error('Error finding purchase orders:' + error);
+            throw new Error('Failed to retrieve purchase orders');
+        }
+    }
+
+    /**
+     * Find purchase order by ID with details
+     */
+    static async findById(id: string): Promise<purchase_orders | null> {
+        try {
+            const order = await models.purchase_orders.findByPk(id, {
+                include: [
+                    {
+                        model: models.suppliers,
+                        as: 'supplier',
+                        attributes: ['id', 'business_name', 'code']
+                    },
+                    {
+                        model: models.warehouses,
+                        as: 'warehouse',
+                        attributes: ['id', 'name', 'code']
+                    },
+                    {
+                        model: models.purchase_order_details,
+                        as: 'purchase_order_details',
+                        include: [{
+                            model: models.products,
+                            as: 'product',
+                            attributes: ['id', 'name', 'code']
+                        }]
+                    },
+                    {
+                        model: models.users,
+                        as: 'created_by_user',
+                        attributes: ['id', 'full_name']
+                    }
+                ]
+            });
+            return order;
+        } catch (error) {
+            secureLogger.error('Error finding purchase order by ID:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Find purchase order by order number
+     */
+    static async findByOrderNumber(orderNumber: string): Promise<purchase_orders | null> {
+        try {
+            const order = await models.purchase_orders.findOne({
+                where: { po_number: orderNumber }
+            });
+            return order;
+        } catch (error) {
+            secureLogger.error('Error finding purchase order by number:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Create purchase order with details
+     */
+    static async create(orderData: Omit<purchase_ordersCreationAttributes, 'po_number' | 'total' | 'subtotal'>, items: any[]): Promise<purchase_orders> {
+        const transaction: Transaction = await sequelize.transaction();
+
+        try {
+            // Generate order number
+            const orderNumber = await this.generateOrderNumber();
+
+            // Calculate total amount
+            const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
+
+            // Create purchase order
+            const order = await models.purchase_orders.create({
+                ...orderData,
+                po_number: orderNumber,
+                subtotal: totalAmount,
+                total: totalAmount,
+                status: 'draft'
+            } as purchase_ordersCreationAttributes, { transaction });
+
+            // Create order details
+            for (const item of items) {
+                const detailId = uuidv4();
+                const purchase_order_detail: purchase_order_detailsAttributes = {
+                    purchase_order_id: order.id,
+                    id: detailId,
+                    product_id: item.productId,
+                    quantity: item.quantity,
+                    unit_cost: item.unitCost,
+                    subtotal: item.quantity * item.unitCost,
+                    tax: 0,
+                    total: item.quantity * item.unitCost,
+                    received_quantity: 0,
+                    expiration_date: item.expirationDate,
+                    batch_number: item.batchNumber,
+                    notes: item.notes
+                };
+
+                await models.purchase_order_details.create(purchase_order_detail, { transaction });
+            }
+
+            await transaction.commit();
+            return order;
+        } catch (error) {
+            await transaction.rollback();
+            secureLogger.error('Error creating purchase order:' + error);
+            throw new Error('Failed to create purchase order');
+        }
+    }
+
+    /**
+     * Update purchase order status
+     */
+    static async updateStatus(id: string, status: string, approvedBy: string): Promise<boolean> {
+        try {
+            const updateFields: any = {
+                status: status as any,
+                approved_by: null,
+                approved_at: null
+            };
+
+            if (status === "approved") {
+                updateFields.approved_by = approvedBy;
+                updateFields.approved_at = new Date();
+            }
+
+            const [updatedCount] = await models.purchase_orders.update(
+                updateFields,
+                { where: { id } }
+            );
+            return updatedCount > 0;
+        } catch (error) {
+            secureLogger.error('Error updating purchase order status:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Update received quantity for order detail
+     */
+    static async updateReceivedQuantity(detailId: string, receivedQty: number): Promise<boolean> {
+        try {
+            const [updatedCount] = await models.purchase_order_details.update(
+                { received_quantity: receivedQty },
+                { where: { id: detailId } }
+            );
+            return updatedCount > 0;
+        } catch (error) {
+            secureLogger.error('Error updating received quantity:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Generate unique order number
+     */
+    private static async generateOrderNumber(): Promise<string> {
+        try {
+            const prefix = 'PO';
+            const date = new Date();
+            const year = date.getFullYear().toString().slice(-2);
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+
+            return `${prefix}-${year}${month}${day}-${random}`;
+        } catch (error) {
+            secureLogger.error('Error generating order number:', error);
+            throw new Error('Failed to generate order number');
+        }
+    }
+}
