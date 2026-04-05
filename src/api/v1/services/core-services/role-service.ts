@@ -1,4 +1,4 @@
-import { RoleRepository, RoleKey } from '../../repositories/core-repositories/role-repository';
+import { RoleRepository } from '../../repositories/core-repositories/role-repository';
 import { RoleResponse, RolesListResponse } from '../../dtos/core-dtos/role-dto';
 
 /**
@@ -23,13 +23,9 @@ export class RoleService {
      * Get all roles with stats and details
      */
     static async getAllRoles(filters: any = {}): Promise<RolesListResponse> {
-        // 1. Obtener estadísticas globales
         const stats = await RoleRepository.getStats();
-
-        // 2. Obtener lista detallada de roles
         const roles = await RoleRepository.findAll(filters);
 
-        // 3. Ensamblar respuesta
         return {
             stats,
             roles: roles.map(role => this.mapRoleToResponse(role))
@@ -39,7 +35,7 @@ export class RoleService {
     /**
      * Get details for a specific role
      */
-    static async getRoleByName(roleName: RoleKey): Promise<RoleResponse> {
+    static async getRoleByName(roleName: string): Promise<RoleResponse> {
 
         const role = await RoleRepository.findByName(roleName);
 

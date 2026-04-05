@@ -10,5 +10,6 @@ router.use(authMiddleware);
 router.get('/users', UserController.getUsers);
 router.get('/users/all', UserController.getAllUsersWithRolesAndPermissions);
 router.post('/users', UserController.createNewUser);
+router.put('/users/:id', UserController.updateUser);
 
 export { router as userRoutes };

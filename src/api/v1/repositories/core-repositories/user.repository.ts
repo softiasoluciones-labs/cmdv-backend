@@ -78,11 +78,24 @@ export class UserRepository {
                 created_at: new Date(),
                 updated_at: new Date(),
             };
-            const user = await models.users.create(userData);
+            const user = await models.users.create(userCreationData);
             return user;
         } catch (error) {
             secureLogger.error('Error creating user:', error);
             throw new Error('Failed to create user: ' + error);
+        }
+    }
+
+    /**
+     * Update a user
+     */
+    static async update(userData: usersCreationAttributes, options: { where: { id: string } }): Promise<[number] | null> {
+        try {
+            const [affectedCount] = await models.users.update(userData, options);
+            return [affectedCount];
+        } catch (error: any) {
+            secureLogger.error('Error updating user:', error);
+            return [0];
         }
     }
 

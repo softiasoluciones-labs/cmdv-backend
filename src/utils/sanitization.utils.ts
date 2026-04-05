@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import validator from 'validator';
-import mongoSanitize from 'express-mongo-sanitize';
 
 /**
  * Sanitize string to prevent XSS attacks
@@ -14,13 +13,6 @@ export const sanitizeString = (input: string): string => {
 
     // Remove any remaining script tags
     return escaped.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-};
-
-/**
- * Sanitize object to prevent NoSQL injection
- */
-export const sanitizeObject = (obj: any): any => {
-    return mongoSanitize.sanitize(obj);
 };
 
 /**
@@ -68,10 +60,6 @@ export const hashToken = (token: string): string => {
 export const sanitizeInput = (input: any): any => {
     if (typeof input === 'string') {
         return sanitizeString(input);
-    }
-
-    if (typeof input === 'object' && input !== null) {
-        return sanitizeObject(input);
     }
 
     return input;

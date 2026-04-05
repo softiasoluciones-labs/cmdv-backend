@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { RoleService } from '../../services/core-services/role-service';
 import { successResponse, errorResponse } from '../../../../utils/response.utils';
-import { RoleKey, ROLE_METADATA } from '../../repositories/core-repositories/role-repository';
 
 /**
  * Role Controller - Handles Role Management Requests
@@ -44,15 +43,14 @@ export class RoleController {
                 return;
             }
 
-            // 🔒 Validación fuerte contra roles del sistema
-            if (!(name in ROLE_METADATA)) {
+            const roleKey = name as string;
+
+            const data = await RoleService.getRoleByName(roleKey);
+
+            if (!data) {
                 res.status(404).json(errorResponse('Role not found'));
                 return;
             }
-
-            const roleKey = name as RoleKey;
-
-            const data = await RoleService.getRoleByName(roleKey);
 
             res.status(200).json(
                 successResponse(data, 'Role details retrieved successfully')

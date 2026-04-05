@@ -1,71 +1,7 @@
 import { models } from '../../../../database';
 import { secureLogger } from '../../../../utils/secure-logger.utils';
-
-/**
- * Metadata estática de roles (System Enums)
- */
-export const ROLE_METADATA = {
-    super_admin: {
-        displayName: 'Super Administrador',
-        description: 'Acceso total a todas las funcionalidades del sistema'
-    },
-    admin: {
-        displayName: 'Administrador',
-        description: 'Gestión administrativa del sistema y usuarios'
-    },
-    doctor: {
-        displayName: 'Doctor',
-        description: 'Personal médico con acceso a expedientes y consultas'
-    },
-    nurse: {
-        displayName: 'Enfermero/a',
-        description: 'Personal de enfermería, signos vitales y cuidados'
-    },
-    pharmacist: {
-        displayName: 'Farmacéutico',
-        description: 'Gestión de farmacia, dispensación y medicamentos'
-    },
-    receptionist: {
-        displayName: 'Recepcionista',
-        description: 'Gestión de citas, admisión y atención al cliente'
-    },
-    lab_technician: {
-        displayName: 'Técnico de Laboratorio',
-        description: 'Gestión de pruebas y resultados de laboratorio'
-    },
-    billing_staff: {
-        displayName: 'Personal de Facturación',
-        description: 'Gestión de cobros, facturas y caja'
-    },
-    warehouse_manager: {
-        displayName: 'Gerente de Almacén',
-        description: 'Gestión de inventario, stock y proveedores'
-    }
-} as const;
-
-/**
- * Tipos derivados automáticamente
- */
-export type RoleKey = keyof typeof ROLE_METADATA;
-
-export interface PermissionDTO {
-    id: number;
-    name: string;
-    description: string;
-    resource: string;
-    action: string;
-}
-
-export interface RoleDTO {
-    id: RoleKey;
-    name: RoleKey;
-    displayName: string;
-    description: string;
-    usersCount: number;
-    permissions: PermissionDTO[];
-    status: 'active';
-    createdAt: Date | null;
-}
+import { Op, WhereOptions, where, cast, col } from 'sequelize';
+import { RoleDTO, PermissionDTO } from '../../dtos/core-dtos/role-dto';
 
 /**
  * Repository
@@ -77,23 +13,31 @@ export class RoleRepository {
      */
     static async findAll(filters: { search?: string } = {}): Promise<RoleDTO[]> {
         try {
-            let rolesList = Object.keys(ROLE_METADATA) as RoleKey[];
-
-            // Filtro de búsqueda
+            let whereClause: WhereOptions = {};
             if (filters.search) {
                 const searchLower = filters.search.toLowerCase();
-                rolesList = rolesList.filter(roleKey => {
-                    const meta = ROLE_METADATA[roleKey];
-                    return (
-                        roleKey.toLowerCase().includes(searchLower) ||
-                        meta.displayName.toLowerCase().includes(searchLower)
-                    );
-                });
+                whereClause = {
+                    [Op.or]: [
+                        where(cast(col('rol'), 'text'), {
+                            [Op.iLike]: `%${searchLower}%`
+                        }),
+                        {
+                            display_name: {
+                                [Op.iLike]: `%${searchLower}%`
+                            }
+                        }
+                    ]
+                };
             }
 
+            // Obtener roles desde la vista en lugar del objeto hardcodeado
+            const rolesFromView = await models.v_roles.findAll({
+                where: whereClause
+            });
+
             const roles = await Promise.all(
-                rolesList.map(async (roleKey): Promise<RoleDTO> => {
-                    const meta = ROLE_METADATA[roleKey];
+                rolesFromView.map(async (roleRow): Promise<RoleDTO> => {
+                    const roleKey = roleRow.rol as string;
 
                     // Conteo de usuarios activos por rol
                     const usersCount = await models.users.count({
@@ -108,7 +52,7 @@ export class RoleRepository {
                         where: { role: roleKey },
                         include: [{
                             model: models.permissions,
-                            as: 'permission', // ⚠️ debe coincidir con la asociación
+                            as: 'permission',
                             attributes: ['id', 'name', 'description', 'resource', 'action']
                         }]
                     });
@@ -127,12 +71,12 @@ export class RoleRepository {
                     return {
                         id: roleKey,
                         name: roleKey,
-                        displayName: meta.displayName,
-                        description: meta.description,
+                        displayName: roleRow.display_name,  // viene de la vista
+                        description: roleRow.description,    // viene de la vista
                         usersCount,
                         permissions,
                         status: 'active',
-                        createdAt: null // System role (enum)
+                        createdAt: null
                     };
                 })
             );
@@ -155,7 +99,7 @@ export class RoleRepository {
         assignedUsers: number;
     }> {
         try {
-            const totalRoles = Object.keys(ROLE_METADATA).length;
+            const totalRoles = await models.v_roles.count();
 
             const assignedUsers = await models.users.count({
                 where: { is_active: true }
@@ -176,9 +120,10 @@ export class RoleRepository {
     /**
      * Buscar un rol por su key
      */
-    static async findByName(roleName: RoleKey): Promise<RoleDTO | null> {
+    static async findByName(roleName: string): Promise<RoleDTO | null> {
         try {
-            const meta = ROLE_METADATA[roleName];
+            const roleRow = await models.v_roles.findOne({ where: { rol: roleName } });
+            if (!roleRow) return null;
 
             const usersCount = await models.users.count({
                 where: {
@@ -210,8 +155,8 @@ export class RoleRepository {
             return {
                 id: roleName,
                 name: roleName,
-                displayName: meta.displayName,
-                description: meta.description,
+                displayName: roleRow.display_name,
+                description: roleRow.description,
                 usersCount,
                 permissions,
                 status: 'active',

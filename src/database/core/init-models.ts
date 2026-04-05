@@ -11,6 +11,8 @@ import { user_permissions as _user_permissions } from "./user_permissions";
 import type { user_permissionsAttributes, user_permissionsCreationAttributes } from "./user_permissions";
 import { users as _users } from "./users";
 import type { usersAttributes, usersCreationAttributes } from "./users";
+import { v_roles as _v_roles } from "./v_roles";
+import type { v_rolesAttributes, v_rolesCreationAttributes } from "./v_roles";
 
 export {
   _audit_logs as audit_logs,
@@ -19,6 +21,7 @@ export {
   _role_permissions as role_permissions,
   _user_permissions as user_permissions,
   _users as users,
+  _v_roles as v_roles,
 };
 
 export type {
@@ -34,6 +37,8 @@ export type {
   user_permissionsCreationAttributes,
   usersAttributes,
   usersCreationAttributes,
+  v_rolesAttributes,
+  v_rolesCreationAttributes,
 };
 
 export function initModels(sequelize: Sequelize) {
@@ -43,21 +48,22 @@ export function initModels(sequelize: Sequelize) {
   const role_permissions = _role_permissions.initModel(sequelize);
   const user_permissions = _user_permissions.initModel(sequelize);
   const users = _users.initModel(sequelize);
+  const v_roles = _v_roles.initModel(sequelize);
 
-  role_permissions.belongsTo(permissions, { as: "permission", foreignKey: "permission_id"});
-  permissions.hasMany(role_permissions, { as: "role_permissions", foreignKey: "permission_id"});
-  user_permissions.belongsTo(permissions, { as: "permission", foreignKey: "permission_id"});
-  permissions.hasMany(user_permissions, { as: "user_permissions", foreignKey: "permission_id"});
-  audit_logs.belongsTo(users, { as: "user", foreignKey: "user_id"});
-  users.hasMany(audit_logs, { as: "audit_logs", foreignKey: "user_id"});
-  jwt_tokens.belongsTo(users, { as: "user", foreignKey: "user_id"});
-  users.hasMany(jwt_tokens, { as: "jwt_tokens", foreignKey: "user_id"});
-  role_permissions.belongsTo(users, { as: "granted_by_user", foreignKey: "granted_by"});
-  users.hasMany(role_permissions, { as: "role_permissions", foreignKey: "granted_by"});
-  user_permissions.belongsTo(users, { as: "granted_by_user", foreignKey: "granted_by"});
-  users.hasMany(user_permissions, { as: "user_permissions", foreignKey: "granted_by"});
-  user_permissions.belongsTo(users, { as: "user", foreignKey: "user_id"});
-  users.hasMany(user_permissions, { as: "user_user_permissions", foreignKey: "user_id"});
+  role_permissions.belongsTo(permissions, { as: "permission", foreignKey: "permission_id" });
+  permissions.hasMany(role_permissions, { as: "role_permissions", foreignKey: "permission_id" });
+  user_permissions.belongsTo(permissions, { as: "permission", foreignKey: "permission_id" });
+  permissions.hasMany(user_permissions, { as: "user_permissions", foreignKey: "permission_id" });
+  audit_logs.belongsTo(users, { as: "user", foreignKey: "user_id" });
+  users.hasMany(audit_logs, { as: "audit_logs", foreignKey: "user_id" });
+  jwt_tokens.belongsTo(users, { as: "user", foreignKey: "user_id" });
+  users.hasMany(jwt_tokens, { as: "jwt_tokens", foreignKey: "user_id" });
+  role_permissions.belongsTo(users, { as: "granted_by_user", foreignKey: "granted_by" });
+  users.hasMany(role_permissions, { as: "role_permissions", foreignKey: "granted_by" });
+  user_permissions.belongsTo(users, { as: "granted_by_user", foreignKey: "granted_by" });
+  users.hasMany(user_permissions, { as: "user_permissions", foreignKey: "granted_by" });
+  user_permissions.belongsTo(users, { as: "user", foreignKey: "user_id" });
+  users.hasMany(user_permissions, { as: "user_user_permissions", foreignKey: "user_id" });
 
   return {
     audit_logs: audit_logs,
@@ -66,5 +72,6 @@ export function initModels(sequelize: Sequelize) {
     role_permissions: role_permissions,
     user_permissions: user_permissions,
     users: users,
+    v_roles: v_roles,
   };
 }

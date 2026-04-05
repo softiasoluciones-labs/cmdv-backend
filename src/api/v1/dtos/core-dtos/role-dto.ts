@@ -1,4 +1,12 @@
 
+export interface PermissionDTO {
+    id: number;
+    name: string;
+    description: string;
+    resource: string;
+    action: string;
+}
+
 export interface RolePermissionDto {
     id: string;
     name: string;
@@ -33,4 +41,23 @@ export interface RolesListResponse {
 export interface RoleFilter {
     search?: string;
     status?: 'active' | 'inactive';
+}
+
+export interface RoleDTO {
+    id: string;
+    name: string;
+    displayName: string;
+    description: string;
+    usersCount: number;
+    permissions: PermissionDTO[];
+    status: "active";
+    createdAt: Date | null;
+}
+
+export interface PermissionDTO {
+    id: number;
+    name: string;
+    description: string;
+    resource: string;
+    action: string;
 }

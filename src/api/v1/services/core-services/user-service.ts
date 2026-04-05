@@ -246,6 +246,16 @@ export class UserService {
         }
     }
 
+    static async updateUser(id: string, user: usersCreationAttributes): Promise<UserResponseDto> {
+        try {
+            const updatedUser = await UserRepository.update(user, { where: { id } });
+            return this.toUserResponseDto(updatedUser);
+        } catch (error) {
+            console.error('Error in UserService.updateUser:', error);
+            throw error;
+        }
+    }
+
     /**
      * Helper para construir respuesta de error
      */
