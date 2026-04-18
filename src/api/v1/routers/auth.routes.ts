@@ -10,6 +10,7 @@ import {
     changePasswordValidator,
     createUserByAdminValidator
 } from '../validators/core-validators/auth.validators';
+import { requireRole } from '../../../middleware/role-middleware';
 
 const router = Router();
 
@@ -40,6 +41,6 @@ router.post('/change-password', authMiddleware, changePasswordValidator, AuthCon
 router.get('/me', authMiddleware, AuthController.getCurrentUser);
 
 // POST /api/v1/auth/create-user-by-admin
-router.post('/create-user-by-admin', authMiddleware, createUserByAdminValidator, AuthController.createUserByAdmin);
+router.post('/create-user-by-admin', authMiddleware, requireRole('admin', 'super_admin'), createUserByAdminValidator, AuthController.createUserByAdmin);
 
 export { router as authRoutes };

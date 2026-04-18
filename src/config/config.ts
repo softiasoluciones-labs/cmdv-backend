@@ -2,7 +2,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-console.log(process.env.PORT);
 export const config = {
   port: parseInt(process.env.PORT || '3002'),
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -25,9 +24,16 @@ export const config = {
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET || 'fallback-secret-key-change-in-production',
+    secret: (() => {
+      if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is required');
+      return process.env.JWT_SECRET;
+    })(),
+
+    refreshSecret: (() => {
+      if (!process.env.JWT_REFRESH_SECRET) throw new Error('JWT_REFRESH_SECRET is required');
+      return process.env.JWT_REFRESH_SECRET;
+    })(),
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret-key-change-in-production',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRATION || '30d'
   },
 

@@ -2,6 +2,8 @@ import { models } from '../../../../database';
 import { users, usersCreationAttributes } from '../../../../database/core/users';
 import { secureLogger } from '../../../../utils/secure-logger.utils';
 import { hashPassword, comparePassword } from '../../../../utils/password.utils';
+import { Op } from 'sequelize';
+import { hashToken } from '../../../../utils/sanitization.utils';
 
 interface ResetTokenData {
     token: string;
@@ -23,7 +25,14 @@ export class UserRepository {
     static async findByEmail(email: string): Promise<users | null> {
         try {
             const user = await models.users.findOne({
-                where: { email, is_active: true, locked_until: null as null | Date }
+                where: {
+                    email,
+                    is_active: true,
+                    [Op.or]: [
+                        { locked_until: null },
+                        { locked_until: { [Op.lt]: new Date() } } // expirado
+                    ]
+                }
             });
             return user;
         } catch (error) {
@@ -65,12 +74,11 @@ export class UserRepository {
      */
     static async create(userData: usersCreationAttributes): Promise<users> {
         try {
-            const password_hash = await hashPassword(userData.password_hash);
-
+            
             // Create user data with properly mapped fields
             const userCreationData: usersCreationAttributes = {
                 email: userData.email,
-                password_hash: password_hash,
+                password_hash: userData.password_hash,
                 full_name: userData.full_name,
                 username: userData.email.split('@')[0] || userData.email, // Generate username from email, fallback to full email
                 role: userData.role as any, // Cast to the proper role enum
@@ -130,7 +138,7 @@ export class UserRepository {
     static async updateLastLogin(userId: string): Promise<void> {
         try {
             await models.users.update(
-                { last_login: new Date() },
+                { last_login: new Date(), failed_login_attempts: 0, locked_until: null },
                 { where: { id: userId } }
             );
         } catch (error) {
@@ -145,8 +153,8 @@ export class UserRepository {
         try {
             await models.jwt_tokens.create({
                 user_id: userId,
-                token_hash: refreshToken, // In production, hash this token
-                refresh_token_hash: refreshToken,
+                token_hash: hashToken(refreshToken),
+                refresh_token_hash: hashToken(refreshToken),
                 expires_at: expiresAt,
                 refresh_expires_at: expiresAt,
                 is_revoked: false
@@ -164,7 +172,7 @@ export class UserRepository {
             const token = await models.jwt_tokens.findOne({
                 where: {
                     user_id: userId,
-                    refresh_token_hash: refreshToken,
+                    refresh_token_hash: hashToken(refreshToken),
                     is_revoked: false
                 }
             });
@@ -239,6 +247,17 @@ export class UserRepository {
      */
     static removeResetToken(token: string): void {
         this.resetTokens.delete(token);
+    }
+
+    static async updateFailedLoginAttempts(userId: string, attempts: number): Promise<void> {
+        try {
+            await models.users.update(
+                { failed_login_attempts: attempts },
+                { where: { id: userId } }
+            );
+        } catch (error) {
+            secureLogger.error('Error updating failed login attempts:', error);
+        }
     }
 
     static async updateLockedUntil(userId: string, lockedUntil: Date): Promise<void> {

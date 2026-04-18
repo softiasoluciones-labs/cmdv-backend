@@ -36,19 +36,16 @@ export class AuthService {
         // Verify password
         const isPasswordValid = await comparePassword(password, user.password_hash);
         if (!isPasswordValid) {
+            const failedLoginAttempts = (user.failed_login_attempts || 0) + 1;
 
-            // if failed login attempts is null, set it to 1
-            let failedLoginAttempts = user.failed_login_attempts || 0;
-            failedLoginAttempts += 1;
-            user.failed_login_attempts = failedLoginAttempts;
-
-            // if failed login attempts is greater than or equal to 5, lock the account for 15 minutes
             if (failedLoginAttempts >= 5) {
-                user.locked_until = new Date(Date.now() + 15 * 60 * 1000); // Lock for 15 minutes
-                await UserRepository.updateLockedUntil(user.id, user.locked_until);
+                const lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+                await UserRepository.updateLockedUntil(user.id, lockedUntil);
+                await UserRepository.updateFailedLoginAttempts(user.id, failedLoginAttempts);
                 throw new Error('Account locked due to too many failed login attempts');
             }
 
+            await UserRepository.updateFailedLoginAttempts(user.id, failedLoginAttempts);
             throw new Error('Invalid credentials.');
         }
 
