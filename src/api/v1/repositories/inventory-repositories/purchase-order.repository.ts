@@ -2,7 +2,7 @@ import { models, sequelize } from '../../../../database';
 import { purchase_orders, purchase_ordersCreationAttributes } from '../../../../database/inventory/purchase_orders';
 import { purchase_order_details, purchase_order_detailsAttributes } from '../../../../database/inventory/purchase_order_details';
 import { secureLogger } from '../../../../utils/secure-logger.utils';
-import { Transaction } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -49,9 +49,12 @@ export class PurchaseOrderRepository {
     /**
      * Find purchase order by ID with details
      */
-    static async findById(id: string): Promise<purchase_orders | null> {
+    static async findById(
+        id: string,
+        options: { transaction?: Transaction; lock?: boolean } = {}
+    ): Promise<purchase_orders | null> {
         try {
-            const order = await models.purchase_orders.findByPk(id, {
+            const findOptions: any = {
                 include: [
                     {
                         model: models.suppliers,
@@ -78,7 +81,14 @@ export class PurchaseOrderRepository {
                         attributes: ['id', 'full_name']
                     }
                 ]
-            });
+            };
+            if (options.transaction) findOptions.transaction = options.transaction;
+            if (options.lock) {
+                // Lock only the purchase_orders row (avoid locking joined tables)
+                findOptions.lock = { level: Transaction.LOCK.UPDATE, of: models.purchase_orders };
+            }
+
+            const order = await models.purchase_orders.findByPk(id, findOptions);
             return order;
         } catch (error) {
             secureLogger.error('Error finding purchase order by ID:', error);
@@ -108,8 +118,8 @@ export class PurchaseOrderRepository {
         const transaction: Transaction = await sequelize.transaction();
 
         try {
-            // Generate order number
-            const orderNumber = await this.generateOrderNumber();
+            // Generate order number (sequential within the transaction)
+            const orderNumber = await this.generateOrderNumber(transaction);
 
             // Calculate total amount
             const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
@@ -154,25 +164,33 @@ export class PurchaseOrderRepository {
     }
 
     /**
-     * Update purchase order status
+     * Update purchase order status.
+     * - Only sets approved_by/approved_at when transitioning to 'approved'.
+     * - Auto-sets actual_delivery_date when transitioning to 'received'.
+     * - Preserves existing audit fields for all other transitions.
      */
-    static async updateStatus(id: string, status: string, approvedBy: string): Promise<boolean> {
+    static async updateStatus(
+        id: string,
+        status: string,
+        approvedBy: string,
+        transaction?: Transaction
+    ): Promise<boolean> {
         try {
-            const updateFields: any = {
-                status: status as any,
-                approved_by: null,
-                approved_at: null
-            };
+            const updateFields: any = { status: status as any };
 
-            if (status === "approved") {
+            if (status === 'approved') {
                 updateFields.approved_by = approvedBy;
                 updateFields.approved_at = new Date();
             }
 
-            const [updatedCount] = await models.purchase_orders.update(
-                updateFields,
-                { where: { id } }
-            );
+            if (status === 'received') {
+                updateFields.actual_delivery_date = new Date().toISOString().split('T')[0];
+            }
+
+            const updateOptions: any = { where: { id } };
+            if (transaction) updateOptions.transaction = transaction;
+
+            const [updatedCount] = await models.purchase_orders.update(updateFields, updateOptions);
             return updatedCount > 0;
         } catch (error) {
             secureLogger.error('Error updating purchase order status:', error);
@@ -183,11 +201,18 @@ export class PurchaseOrderRepository {
     /**
      * Update received quantity for order detail
      */
-    static async updateReceivedQuantity(detailId: string, receivedQty: number): Promise<boolean> {
+    static async updateReceivedQuantity(
+        detailId: string,
+        receivedQty: number,
+        transaction?: Transaction
+    ): Promise<boolean> {
         try {
+            const updateOptions: any = { where: { id: detailId } };
+            if (transaction) updateOptions.transaction = transaction;
+
             const [updatedCount] = await models.purchase_order_details.update(
                 { received_quantity: receivedQty },
-                { where: { id: detailId } }
+                updateOptions
             );
             return updatedCount > 0;
         } catch (error) {
@@ -197,18 +222,35 @@ export class PurchaseOrderRepository {
     }
 
     /**
-     * Generate unique order number
+     * Generate unique sequential order number for the day.
+     * Uses SELECT MAX within the transaction — if two concurrent creations
+     * race, Postgres will reject one via the UNIQUE constraint on po_number
+     * and the caller can retry.
      */
-    private static async generateOrderNumber(): Promise<string> {
+    private static async generateOrderNumber(transaction?: Transaction): Promise<string> {
         try {
-            const prefix = 'PO';
             const date = new Date();
             const year = date.getFullYear().toString().slice(-2);
             const month = (date.getMonth() + 1).toString().padStart(2, '0');
             const day = date.getDate().toString().padStart(2, '0');
-            const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            const prefix = `PO-${year}${month}${day}-`;
 
-            return `${prefix}-${year}${month}${day}-${random}`;
+            const findOptions: any = {
+                where: { po_number: { [Op.like]: `${prefix}%` } },
+                order: [['po_number', 'DESC']],
+                attributes: ['po_number']
+            };
+            if (transaction) findOptions.transaction = transaction;
+
+            const latest = await models.purchase_orders.findOne(findOptions);
+
+            let nextSeq = 1;
+            if (latest && latest.po_number) {
+                const parts = latest.po_number.split('-');
+                const lastSeq = parseInt(parts[parts.length - 1] || '0', 10);
+                if (!isNaN(lastSeq)) nextSeq = lastSeq + 1;
+            }
+            return `${prefix}${nextSeq.toString().padStart(4, '0')}`;
         } catch (error) {
             secureLogger.error('Error generating order number:', error);
             throw new Error('Failed to generate order number');

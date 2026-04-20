@@ -75,17 +75,49 @@ export class PurchaseOrderService {
         return this.toPurchaseOrderResponse(created!);
     }
 
+    /**
+     * Valid transitions between PO statuses.
+     * Note: transition to 'received' is only allowed through receivePurchaseOrder
+     * (which must also create the corresponding stock movements).
+     */
+    private static readonly STATUS_TRANSITIONS: Record<string, string[]> = {
+        draft: ['pending', 'cancelled'],
+        pending: ['approved', 'cancelled', 'draft'],
+        approved: ['cancelled'],
+        received: [],
+        cancelled: []
+    };
+
     static async updatePurchaseOrderStatus(id: string, status: string, userId: string): Promise<PurchaseOrderResponse> {
         const order = await PurchaseOrderRepository.findById(id);
         if (!order) throw new Error('Purchase order not found');
 
-        // Validate status transitions
-        const validStatuses = ['draft', 'pending', 'approved', 'received', 'cancelled'];
+        const validStatuses = Object.keys(this.STATUS_TRANSITIONS);
         if (!validStatuses.includes(status)) {
             throw new Error(`Invalid status: ${status}`);
         }
 
-        // Update status
+        const currentStatus = order.status || 'draft';
+        if (currentStatus === status) {
+            throw new Error(`Purchase order is already in status: ${status}`);
+        }
+
+        const allowed = this.STATUS_TRANSITIONS[currentStatus] || [];
+        if (!allowed.includes(status)) {
+            throw new Error(`Invalid status transition from '${currentStatus}' to '${status}'`);
+        }
+
+        // Cancelling an order with any received items would leave stock inflated.
+        // Block this — partial returns must go through a separate dedicated flow.
+        if (status === 'cancelled') {
+            const hasReceived = ((order as any).purchase_order_details || []).some(
+                (d: any) => (d.received_quantity || 0) > 0
+            );
+            if (hasReceived) {
+                throw new Error('Cannot cancel order with received items. Create a return instead.');
+            }
+        }
+
         const updated = await PurchaseOrderRepository.updateStatus(id, status, userId);
         if (!updated) throw new Error('Failed to update purchase order status');
 
@@ -94,24 +126,41 @@ export class PurchaseOrderService {
     }
 
     static async receivePurchaseOrder(id: string, data: ReceivePurchaseOrderRequest, userId: string): Promise<PurchaseOrderResponse> {
-        const order = await PurchaseOrderRepository.findById(id);
-        if (!order) throw new Error('Purchase order not found');
-
-        if (!['pending', 'approved'].includes(order.status || '')) {
-            throw new Error(`Cannot receive order with status: ${order.status}`);
-        }
-
         const transaction = await sequelize.transaction();
 
         try {
-            // Create stock movements for received items
+            // Lock the PO row to prevent concurrent receptions from racing.
+            const order = await PurchaseOrderRepository.findById(id, { transaction, lock: true });
+            if (!order) throw new Error('Purchase order not found');
+
+            if (!['pending', 'approved'].includes(order.status || '')) {
+                throw new Error(`Cannot receive order with status: ${order.status}`);
+            }
+
+            const details: any[] = (order as any).purchase_order_details || [];
+            const pendingByDetailId = new Map<string, number>();
+            for (const detail of details) {
+                pendingByDetailId.set(detail.id, detail.quantity - (detail.received_quantity || 0));
+            }
+
+            // Process each received item against a specific order detail.
+            // We match by product_id but track consumption of pending quantity
+            // per-detail row so duplicate product lines (e.g. same product in
+            // two batches) are handled safely.
             for (const item of data.receivedItems) {
-                const orderDetail = (order as any).purchase_order_details.find(
-                    (d: any) => d.product_id === item.productId
+                const orderDetail = details.find(
+                    (d: any) => d.product_id === item.productId && (pendingByDetailId.get(d.id) || 0) > 0
                 );
 
                 if (!orderDetail) {
-                    throw new Error(`Product ${item.productId} not found in order`);
+                    throw new Error(`Product ${item.productId} not found in order or already fully received`);
+                }
+
+                const pending = pendingByDetailId.get(orderDetail.id) || 0;
+                if (item.quantity > pending) {
+                    throw new Error(
+                        `Cannot receive ${item.quantity} units of product ${item.productId}. Only ${pending} pending on this line.`
+                    );
                 }
 
                 const stockMovementData: stock_movementsAttributes = {
@@ -122,30 +171,27 @@ export class PurchaseOrderService {
                     unit_cost: parseFloat(orderDetail.unit_cost.toString()),
                     reference_type: 'purchase_order',
                     reference_id: order.id,
-                    movement_number: await StockMovementRepository.generateMovementNumber('reception'),
+                    movement_number: '', // overwritten by repository
                     created_by: userId,
                     ...(item.batchNumber && { batch_number: item.batchNumber }),
                     ...(item.expirationDate && { expiration_date: item.expirationDate }),
                     ...(data.notes && { notes: data.notes })
                 };
 
-                // Create reception stock movement
-                await StockMovementRepository.create(stockMovementData);
+                await StockMovementRepository.create(stockMovementData, transaction);
 
-                // Update received quantity
                 const newReceivedQty = (orderDetail.received_quantity || 0) + item.quantity;
-                await PurchaseOrderRepository.updateReceivedQuantity(orderDetail.id, newReceivedQty);
+                await PurchaseOrderRepository.updateReceivedQuantity(orderDetail.id, newReceivedQty, transaction);
+
+                // Keep the in-memory pending counter in sync for the rest of the loop
+                pendingByDetailId.set(orderDetail.id, pending - item.quantity);
+                orderDetail.received_quantity = newReceivedQty;
             }
 
-            // Update order status
-            const allItemsReceived = (order as any).purchase_order_details.every((detail: any) => {
-                const receivedItem = data.receivedItems.find(i => i.productId === detail.product_id);
-                const totalReceived = (detail.received_quantity || 0) + (receivedItem?.quantity || 0);
-                return totalReceived >= detail.quantity;
-            });
-
+            // Decide final status based on accumulated pending quantities.
+            const allItemsReceived = details.every((d: any) => (pendingByDetailId.get(d.id) || 0) <= 0);
             const newStatus = allItemsReceived ? 'received' : 'approved';
-            await PurchaseOrderRepository.updateStatus(id, newStatus, userId);
+            await PurchaseOrderRepository.updateStatus(id, newStatus, userId, transaction);
 
             await transaction.commit();
 

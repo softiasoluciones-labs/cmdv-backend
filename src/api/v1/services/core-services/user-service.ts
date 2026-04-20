@@ -221,6 +221,19 @@ export class UserService {
     }
 
     /**
+     * Get user by role
+     */
+    static async getUsersByRole(role: string): Promise<UserResponseDto[]> {
+        try {
+            const users = await UserRepository.findByRole(role);
+            return users.map(user => this.toUserResponseDto(user));
+        } catch (error) {
+            console.error('Error in UserService.getUsersByRole:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Create new user
      */
     static async createNewUser(user: usersCreationAttributes): Promise<UserResponseDto> {

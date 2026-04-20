@@ -61,7 +61,7 @@ export const updatePurchaseOrderValidator: ValidationChain[] = [
         .withMessage('Expected date must be in format YYYY-MM-DD'),
     body('status')
         .optional()
-        .isIn(['draft', 'sent', 'confirmed', 'partially_received', 'received', 'cancelled'])
+        .isIn(['draft', 'pending', 'approved', 'received', 'cancelled'])
         .withMessage('Invalid status'),
     body('notes')
         .optional()

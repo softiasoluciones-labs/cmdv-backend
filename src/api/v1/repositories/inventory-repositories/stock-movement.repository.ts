@@ -1,7 +1,8 @@
 import { models } from '../../../../database';
 import { stock_movements, stock_movementsCreationAttributes } from '../../../../database/inventory/stock_movements';
 import { secureLogger } from '../../../../utils/secure-logger.utils';
-import { Op } from 'sequelize';
+import { CreateOptions, Op, Transaction } from 'sequelize';
+import crypto from 'crypto';
 
 /**
  * Stock Movement Repository
@@ -103,15 +104,20 @@ export class StockMovementRepository {
     /**
      * Create stock movement (triggers warehouse_stock update)
      */
-    static async create(movementData: stock_movementsCreationAttributes): Promise<stock_movements> {
+    static async create(
+        movementData: stock_movementsCreationAttributes,
+        transaction?: Transaction
+    ): Promise<stock_movements> {
         try {
-            // Generate movement number
             const movementNumber = await this.generateMovementNumber(movementData.movement_type);
 
-            const movement = await models.stock_movements.create({
-                ...movementData,
-                movement_number: movementNumber
-            });
+            const createOptions: CreateOptions<stock_movementsCreationAttributes> = {};
+            if (transaction) createOptions.transaction = transaction;
+
+            const movement = await models.stock_movements.create(
+                { ...movementData, movement_number: movementNumber },
+                createOptions
+            );
 
             return movement;
         } catch (error) {
@@ -122,17 +128,13 @@ export class StockMovementRepository {
 
     /**
      * Generate unique movement number
+     * Format: <PREFIX>-<YYYYMMDD>-<8 hex chars> → 32 bits of entropy, collision-resistant
      */
     static async generateMovementNumber(movementType: string): Promise<string> {
-        try {
-            const prefix = movementType.substring(0, 3).toUpperCase();
-            const timestamp = Date.now().toString().slice(-8);
-            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-
-            return `${prefix}-${timestamp}-${random}`;
-        } catch (error) {
-            secureLogger.error('Error generating movement number:', error);
-            throw new Error('Failed to generate movement number');
-        }
+        const prefix = movementType.substring(0, 3).toUpperCase();
+        const date = new Date();
+        const datePart = `${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
+        const unique = crypto.randomBytes(4).toString('hex').toUpperCase();
+        return `${prefix}-${datePart}-${unique}`;
     }
 }

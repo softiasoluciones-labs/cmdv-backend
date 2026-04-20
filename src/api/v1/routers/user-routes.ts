@@ -13,4 +13,7 @@ router.get('/users/all', requireRole('admin', 'super_admin'), UserController.get
 router.post('/users', requireRole('admin', 'super_admin'), UserController.createNewUser);
 router.put('/users/:id', requireRole('admin', 'super_admin'), UserController.updateUser);
 
+// Get users by warehouse role 
+router.get('/users/by-role', UserController.getUsersByRole);
+
 export { router as userRoutes };

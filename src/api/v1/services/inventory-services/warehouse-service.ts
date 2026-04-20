@@ -1,6 +1,8 @@
 import { WarehouseRepository } from '../../repositories/inventory-repositories/warehouse.repository';
 import { WarehouseResponse, CreateWarehouseRequest, UpdateWarehouseRequest, StockStatusResponse } from '../../dtos/inventory-dtos/warehouse-dto';
 import { warehouses } from '../../../../database/inventory/warehouses';
+import { UserRepository } from '../../repositories/core-repositories/user.repository';
+import { UserResponse } from '../../dtos/core-dtos/auth.dtos';
 
 export class WarehouseService {
     private static toWarehouseResponse(warehouse: warehouses): WarehouseResponse {

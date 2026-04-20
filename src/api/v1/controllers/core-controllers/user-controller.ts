@@ -82,6 +82,46 @@ export class UserController {
         }
     }
 
+    /**
+     * Get all users by warehouse role 
+     */
+    static async getUsersByRole(req: Request, res: Response): Promise<void> {
+        try {
+            const role = req.query.role as string;
+
+            if (!role) {
+                res.status(400).json({
+                    success: false,
+                    code: 400,
+                    message: 'Role query parameter is required',
+                    data: null
+                });
+                return;
+            }
+
+            const users = await UserService.getUsersByRole(role);
+
+            res.status(200).json({
+                success: true,
+                code: 200,
+                message: `Users with role ${role} retrieved successfully`,
+                data: {
+                    total: users.length,
+                    users
+                }
+            });
+
+        } catch (error) {
+
+            res.status(500).json({
+                success: false,
+                code: 500,
+                message: error instanceof Error ? error.message : 'Internal server error',
+                data: null
+            });
+        }
+    }
+
     static async createNewUser(req: Request, res: Response): Promise<void> {
         try {
             const user = await UserService.createNewUser(req.body);

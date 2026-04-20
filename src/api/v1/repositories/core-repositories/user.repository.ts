@@ -70,11 +70,26 @@ export class UserRepository {
     }
 
     /**
+     * Find users by role
+     */
+    static async findByRole(role: string): Promise<users[]> {
+        try {
+            const users = await models.users.findAll({
+                where: { role, is_active: true }
+            });
+            return users;
+        } catch (error) {
+            secureLogger.error('Error finding users by role:', error);
+            return [];
+        }
+    }
+
+    /**
      * Create a new user
      */
     static async create(userData: usersCreationAttributes): Promise<users> {
         try {
-            
+
             // Create user data with properly mapped fields
             const userCreationData: usersCreationAttributes = {
                 email: userData.email,
