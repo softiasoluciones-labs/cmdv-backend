@@ -1,7 +1,6 @@
 /**
  * Purchase Order DTOs
  */
-
 export type PurchaseOrderStatus = 'draft' | 'pending' | 'approved' | 'received' | 'cancelled';
 
 export interface PurchaseOrderItemResponse {
@@ -29,7 +28,11 @@ export interface PurchaseOrderResponse {
     expectedDate?: string;
     receivedDate?: string;
     status?: PurchaseOrderStatus;
+    subtotal?: number;
+    discount?: number;
+    shippingCost?: number;
     totalAmount?: number;
+    paymentTerms?: string;
     notes?: string;
     createdBy?: string;
     items?: PurchaseOrderItemResponse[];
@@ -49,6 +52,9 @@ export interface CreatePurchaseOrderRequest {
     supplierId: string;
     warehouseId: string;
     expectedDate?: string;
+    discount?: number;
+    shippingCost?: number;
+    paymentTerms: "immediate" | "one_payment" | "two_payments" | "three_payments";
     notes?: string;
     items: PurchaseOrderItemRequest[];
 }

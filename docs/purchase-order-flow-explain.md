@@ -29,15 +29,23 @@ El sistema maneja el stock de manera **automática** mediante un **trigger de ba
      supplier_id, warehouse_id, expected_delivery_date,
      po_number: "PO-241202-XXXX", // auto-generado
      subtotal: calculado,
-     total: calculado,
+     discount: opcional,           // ← NUEVO
+     shipping_cost: opcional,      // ← NUEVO
+     total: calculado (subtotal - discount + shipping_cost),
+     payment_terms: requerido,     // ← NUEVO: "immediate" | "one_payment" | "two_payments" | "three_payments"
      status: 'draft'
    }
    
    // Se crean los detalles en purchase_order_details
    {
      purchase_order_id, product_id, quantity, unit_cost,
-     subtotal, tax, total,
-     received_quantity: 0 // importante!
+     subtotal: quantity * unit_cost,
+     tax: 0,
+     total: quantity * unit_cost,
+     received_quantity: 0,          // importante!
+     expiration_date: opcional,
+     batch_number: opcional,
+     notes: opcional
    }
    ```
 
@@ -60,21 +68,45 @@ El sistema maneja el stock de manera **automática** mediante un **trigger de ba
 1. **Validación de datos** (via `updateStatusValidator`)
    - `status` (requerido): `draft`, `pending`, `approved`, `received`, `cancelled`
 
-2. **Actualización en base de datos** (via `PurchaseOrderRepository.updateStatus()`)
+2. **Validaciones de Transición de Estado** (via `PurchaseOrderService.updatePurchaseOrderStatus()`)
+   
+   Transiciones permitidas:
    ```typescript
-   // Valida que la orden exista
-   const order = await PurchaseOrderRepository.findById(id);
-   
-   // Valida que el status sea válido
-   const validStatuses = ['draft', 'pending', 'approved', 'received', 'cancelled'];
-   
-   // Actualiza el status
-   await PurchaseOrderRepository.updateStatus(id, status);
+   const STATUS_TRANSITIONS = {
+       draft: ['pending', 'cancelled'],
+       pending: ['approved', 'cancelled', 'draft'],
+       approved: ['cancelled'],
+       received: [],           // ← NO puede transicionar (solo via receivePurchaseOrder)
+       cancelled: []           // ← NO puede transicionar
+   };
    ```
 
-3. **Resultado:** Purchase Order con status actualizado (típicamente de `draft` a `approved`)
+   **⚠️ Restricción Crítica:** No puedes cancelar una orden que tenga items recibidos:
+   ```typescript
+   if (status === 'cancelled' && hasReceivedItems) {
+       throw new Error('Cannot cancel order with received items. Create a return instead.');
+   }
+   ```
 
-> **💡 TIP:** Debes cambiar el status a `approved` o `pending` antes de poder recibir la mercancía.
+3. **Actualización en base de datos** (via `PurchaseOrderRepository.updateStatus()`)
+   ```typescript
+   // Cuando status = 'approved':
+   {
+       status: 'approved',
+       approved_by: userId,        // ← NUEVO
+       approved_at: new Date()     // ← NUEVO
+   }
+   
+   // Cuando status = 'received':
+   {
+       status: 'received',
+       actual_delivery_date: "YYYY-MM-DD"  // ← NUEVO (ISO date)
+   }
+   ```
+
+4. **Resultado:** Purchase Order con status actualizado y auditoría completa.
+
+> **💡 TIP:** El status `received` SOLO se establece a través del endpoint `/receive`, no directamente.
 
 **Ejemplo de Request:**
 ```bash
@@ -96,11 +128,14 @@ PATCH /api/v1/inventory/purchase-orders/{id}/status
 
 **Pasos:**
 
-### 3.1 Validaciones Iniciales
+### 3.1 Validaciones Iniciales (dentro de Transacción)
 
 ```typescript
-// Verifica que la orden exista
-const order = await PurchaseOrderRepository.findById(id);
+// Verifica que la orden exista y BLOQUEA la fila para evitar condiciones de carrera
+const order = await PurchaseOrderRepository.findById(id, { 
+    transaction, 
+    lock: true  // ← IMPORTANTE: SELECT ... FOR UPDATE
+});
 
 // Verifica que el estado permita recepción
 if (!['pending', 'approved'].includes(order.status)) {
@@ -108,11 +143,46 @@ if (!['pending', 'approved'].includes(order.status)) {
 }
 ```
 
+> **🔒 Nota sobre LOCK:** Si dos recepciones ocurren simultáneamente, Postgres rechazará una con un error de bloqueo, protegiendo la integridad.
+
 ### 3.2 Procesamiento de Items Recibidos (dentro de transacción)
 
-Para cada item en `data.receivedItems`:
+**Paso 1: Mapear pending quantities por detail**
 
-#### A. Crear Stock Movement
+```typescript
+const pendingByDetailId = new Map<string, number>();
+for (const detail of order.purchase_order_details) {
+    pendingByDetailId.set(detail.id, detail.quantity - (detail.received_quantity || 0));
+}
+```
+
+Esto permite manejar **recepciones parciales** y **múltiples líneas del mismo producto** sin confusiones.
+
+**Paso 2: Para cada item en `data.receivedItems`:**
+
+#### A. Validar disponibilidad
+
+```typescript
+// Encuentra la línea de detalle que coincida:
+// - Mismo product_id
+// - Con cantidad PENDIENTE > 0
+const orderDetail = details.find(
+    (d: any) => d.product_id === item.productId && 
+                (pendingByDetailId.get(d.id) || 0) > 0
+);
+
+if (!orderDetail) {
+    throw new Error(`Product ${item.productId} not found or already fully received`);
+}
+
+// Valida que no recibas más de lo pendiente
+const pending = pendingByDetailId.get(orderDetail.id) || 0;
+if (item.quantity > pending) {
+    throw new Error(`Cannot receive ${item.quantity}. Only ${pending} pending.`);
+}
+```
+
+#### B. Crear Stock Movement
 
 ```typescript
 const stockMovementData = {
@@ -120,39 +190,46 @@ const stockMovementData = {
     warehouse_id: order.warehouse_id,
     product_id: item.productId,
     quantity: item.quantity,
-    unit_cost: orderDetail.unit_cost,
+    unit_cost: parseFloat(orderDetail.unit_cost.toString()),
     reference_type: 'purchase_order',
     reference_id: order.id,
-    movement_number: "REC-241202-XXXX", // auto-generado
-    batch_number: item.batchNumber,     // opcional
-    expiration_date: item.expirationDate // opcional
+    movement_number: "",            // auto-generado por StockMovementRepository
+    batch_number: item.batchNumber, // opcional
+    expiration_date: item.expirationDate, // opcional
+    notes: data.notes               // opcional
 };
 
-await StockMovementRepository.create(stockMovementData);
+await StockMovementRepository.create(stockMovementData, transaction);
 ```
 
-> **🔥 AQUÍ ES DONDE OCURRE LA MAGIA DEL STOCK!**
+> **🔥 AQUÍ ES DONDE OCURRE LA MAGIA DEL STOCK!** El trigger `trg_update_warehouse_stock` actualiza automáticamente `warehouse_stock`.
 
-#### B. Actualizar Cantidad Recibida
+#### C. Actualizar Cantidad Recibida
 
 ```typescript
 const newReceivedQty = (orderDetail.received_quantity || 0) + item.quantity;
-await PurchaseOrderRepository.updateReceivedQuantity(orderDetail.id, newReceivedQty);
-```
+await PurchaseOrderRepository.updateReceivedQuantity(orderDetail.id, newReceivedQty, transaction);
 
-Esto actualiza `purchase_order_details.received_quantity` para tracking.
+// Mantener el contador en memoria sincronizado para el resto del loop
+pendingByDetailId.set(orderDetail.id, pending - item.quantity);
+orderDetail.received_quantity = newReceivedQty;
+```
 
 ### 3.3 Actualizar Estado de la Orden
 
 ```typescript
 // Verifica si todos los items fueron recibidos completamente
-const allItemsReceived = order.purchase_order_details.every(detail => {
-    const totalReceived = detail.received_quantity + receivedItem.quantity;
-    return totalReceived >= detail.quantity;
-});
+// usando el mapa de pending actualizado en el loop anterior
+const allItemsReceived = details.every((d: any) => (pendingByDetailId.get(d.id) || 0) <= 0);
 
+// Si todos los items se recibieron → 'received'
+// Si es recepción parcial → permanece en 'approved'
 const newStatus = allItemsReceived ? 'received' : 'approved';
-await PurchaseOrderRepository.updateStatus(id, newStatus);
+await PurchaseOrderRepository.updateStatus(id, newStatus, userId, transaction);
+
+// Esto establecerá:
+// - Si newStatus = 'received': actual_delivery_date = hoy
+// - approved_by y approved_at ya fueron establecidos en paso anterior
 ```
 
 ### 3.4 Commit de Transacción
@@ -252,31 +329,32 @@ Esto garantiza que solo haya **un registro por producto por almacén**.
 
 ```mermaid
 graph TD
-    A[POST /purchase-orders] --> B[Crear PO con status: draft]
-    B --> C[Crear purchase_order_details]
+    A[POST /purchase-orders] --> B["Crear PO<br/>- paymentTerms<br/>- discount<br/>- shippingCost<br/>status: draft"]
+    B --> C[Crear purchase_order_details<br/>con expirationDate, batchNumber]
     C --> D[PATCH /purchase-orders/:id/status]
-    D --> E[Cambiar status a approved]
+    D --> E["Cambiar status a approved<br/>✅ Set approved_by, approved_at"]
     
     E --> F[POST /purchase-orders/:id/receive]
     F --> G[Validar status = pending/approved]
-    G --> H[Iniciar Transacción]
+    G --> H["Iniciar Transacción<br/>+ LOCK PO row"]
     
-    H --> I[Para cada item recibido]
-    I --> J[Crear stock_movement con type=reception]
-    J --> K[🔥 TRIGGER: update_warehouse_stock]
-    K --> L{¿Existe en warehouse_stock?}
-    L -->|Sí| M[quantity += received_quantity]
-    L -->|No| N[Crear nuevo registro]
+    H --> I["Para cada item recibido<br/>Mapear pending quantities"]
+    I --> J["Validar cantidad<br/>≤ pendiente"]
+    J --> K[Crear stock_movement<br/>type=reception]
+    K --> L["🔥 TRIGGER<br/>update_warehouse_stock"]
+    L --> M{¿Existe en warehouse_stock?}
+    M -->|Sí| N["quantity +=<br/>received_quantity"]
+    M -->|No| O[Crear nuevo registro]
     
-    M --> O[Actualizar received_quantity en PO detail]
-    N --> O
-    O --> P{¿Todos los items recibidos?}
-    P -->|Sí| Q[status = received]
-    P -->|No| R[status = approved]
+    N --> P["Actualizar<br/>received_quantity"]
+    O --> P
+    P --> Q{¿Todos items recibidos?}
+    Q -->|Sí| R["status = received<br/>✅ Set actual_delivery_date"]
+    Q -->|No| S["status = approved<br/>(recepción parcial)"]
     
-    Q --> S[Commit Transacción]
-    R --> S
-    S --> T[✅ Stock actualizado automáticamente]
+    R --> T[Commit Transacción]
+    S --> T
+    T --> U["✅ Stock actualizado<br/>✅ Auditoría completa"]
 ```
 
 ---
@@ -304,11 +382,17 @@ POST /api/v1/inventory/purchase-orders
   "supplierId": "supplier-uuid",
   "warehouseId": "warehouse-uuid",
   "expectedDate": "2024-12-15",
+  "paymentTerms": "two_payments",
+  "discount": 50.00,
+  "shippingCost": 10.00,
+  "notes": "Orden urgente",
   "items": [
     {
       "productId": "prod-456",
       "quantity": 100,
-      "unitCost": 25.50
+      "unitCost": 25.50,
+      "expirationDate": "2025-06-30",
+      "batchNumber": "BATCH-2024-001"
     }
   ]
 }
@@ -322,6 +406,11 @@ POST /api/v1/inventory/purchase-orders
     "id": "abc-123",
     "orderNumber": "PO-241202-1234",
     "status": "draft",
+    "subtotal": 2550.00,
+    "discount": 50.00,
+    "shippingCost": 10.00,
+    "totalAmount": 2510.00,
+    "paymentTerms": "two_payments",
     ...
   }
 }
@@ -344,10 +433,14 @@ PATCH /api/v1/inventory/purchase-orders/abc-123/status
   "data": {
     "id": "abc-123",
     "status": "approved",
+    "approvedBy": "user-789",
+    "approvedAt": "2024-12-02T15:30:00Z",
     ...
   }
 }
 ```
+
+> **📌 NOTA:** `approvedBy` y `approvedAt` se establecen automáticamente al cambiar a `approved`. El usuario debe estar autenticado.
 
 ### Paso 3: Recibir 100 unidades de Paracetamol
 
@@ -360,25 +453,51 @@ POST /api/v1/inventory/purchase-orders/abc-123/receive
       "productId": "prod-456",
       "quantity": 100,
       "batchNumber": "BATCH-2024-001",
-      "expirationDate": "2025-12-31"
+      "expirationDate": "2025-06-30"
     }
   ],
   "notes": "Recepción completa"
 }
 ```
 
-**Lo que sucede:**
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "abc-123",
+    "status": "received",
+    "actualDeliveryDate": "2024-12-02",
+    "items": [
+      {
+        "id": "detail-1",
+        "productId": "prod-456",
+        "quantity": 100,
+        "receivedQuantity": 100,
+        "batchNumber": "BATCH-2024-001",
+        "expirationDate": "2025-06-30"
+      }
+    ]
+  }
+}
+```
+
+**Lo que sucede dentro de la transacción:**
 
 1. Se crea `stock_movement`:
    ```sql
    INSERT INTO inventory.stock_movements (
-     movement_type, warehouse_id, product_id, quantity, ...
+     movement_type, warehouse_id, product_id, quantity, 
+     unit_cost, reference_type, reference_id, 
+     batch_number, expiration_date, ...
    ) VALUES (
-     'reception', 'wh-001', 'prod-456', 100, ...
+     'reception', 'wh-001', 'prod-456', 100, 
+     25.50, 'purchase_order', 'abc-123',
+     'BATCH-2024-001', '2025-06-30', ...
    );
    ```
 
-2. **Trigger automático** ejecuta:
+2. **Trigger automático `trg_update_warehouse_stock` ejecuta:**
    ```sql
    -- Si el producto YA existe en warehouse_stock:
    UPDATE inventory.warehouse_stock
@@ -394,7 +513,15 @@ POST /api/v1/inventory/purchase-orders/abc-123/receive
 
 3. Se actualiza `purchase_order_details.received_quantity = 100`
 
-4. Si era el último item, `purchase_orders.status = 'received'`
+4. Como todos los items fueron recibidos:
+   ```typescript
+   purchase_orders.status = 'received'
+   purchase_orders.actual_delivery_date = '2024-12-02'
+   ```
+
+5. ✅ **Commit automático** de la transacción
+
+> **Si hay error en cualquier paso:** Rollback automático — ni el stock se actualiza ni se registra la recepción.
 
 ---
 
@@ -410,15 +537,60 @@ POST /api/v1/inventory/purchase-orders/abc-123/receive
 
 ## 10. Consideraciones Importantes
 
+### Operaciones
+
 ⚠️ **No actualices `warehouse_stock` manualmente** - El trigger lo hace automáticamente  
 ⚠️ **Siempre usa transacciones** - Para mantener consistencia  
 ⚠️ **Valida cantidades** - Antes de crear stock movements  
 ⚠️ **Maneja errores** - El rollback protege la integridad  
 ⚠️ **Actualiza el status a `approved` o `pending`** - Antes de recibir mercancía  
 
+### Status y Transiciones
+
+⚠️ **Status `received` solo via `/receive` endpoint** - No puedes escribir directamente  
+⚠️ **No puedes cancelar órdenes con items recibidos** - Crea un retorno en su lugar  
+⚠️ **Los campos `approved_by`, `approved_at` se establecen automáticamente** - Cuando cambias a `approved`  
+⚠️ **El campo `actual_delivery_date` se establece automáticamente** - Cuando cambias a `received`  
+
+### Nuevos Campos
+
+⚠️ **`paymentTerms` es requerido** - Debe ser uno de: `"immediate" | "one_payment" | "two_payments" | "three_payments"`  
+⚠️ **`discount` y `shippingCost` son opcionales** - Afectan el cálculo del `total`  
+⚠️ **`expirationDate` y `batchNumber` son opcionales en items** - Úsalos para trazabilidad de lotes  
+
+### Recepciones
+
+⚠️ **Se permiten recepciones parciales** - Recibe parte hoy, parte después  
+⚠️ **No puedes recibir más de lo pendiente** - El sistema valida automáticamente  
+⚠️ **Múltiples líneas del mismo producto se manejan correctamente** - Por ejemplo, 2 lotes diferentes del mismo medicamento  
+⚠️ **Lock automático previene condiciones de carrera** - Si dos recepciones ocurren simultáneamente, una será rechazada  
+
 ---
 
-## 11. Vista de Stock Status
+## 11. Campos de Auditoría
+
+La tabla `purchase_orders` ahora incluye campos para rastrear aprobaciones y entregas:
+
+| Campo | Tipo | Cuándo se establece | Valor |
+|-------|------|------------------|-------|
+| `approved_by` | UUID | Al cambiar a `approved` | ID del usuario que aprobó |
+| `approved_at` | TIMESTAMP | Al cambiar a `approved` | Fecha/hora de aprobación |
+| `actual_delivery_date` | DATE | Al cambiar a `received` | Fecha de entrega real (YYYY-MM-DD) |
+
+**Ejemplo:**
+```json
+{
+  "id": "abc-123",
+  "status": "approved",
+  "approvedBy": "user-789",
+  "approvedAt": "2024-12-02T15:30:45Z",
+  "actualDeliveryDate": null  // Se establece cuando status = 'received'
+}
+```
+
+---
+
+## 12. Vista de Stock Status
 
 Puedes consultar el estado actual del stock usando la vista:
 

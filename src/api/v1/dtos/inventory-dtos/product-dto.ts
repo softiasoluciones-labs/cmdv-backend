@@ -20,6 +20,9 @@ export interface ProductResponse {
     requiresRefrigeration?: boolean;
     expirationAlertDays?: number;
     isActive?: boolean;
+    totalStockQuantity?: number;
+    totalReservedQuantity?: number;
+    totalAvailableQuantity?: number;
     createdAt?: Date;
     updatedAt?: Date;
 }

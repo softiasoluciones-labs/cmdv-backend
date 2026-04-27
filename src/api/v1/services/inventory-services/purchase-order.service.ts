@@ -32,7 +32,11 @@ export class PurchaseOrderService {
             ...(order.expected_delivery_date && { expectedDate: order.expected_delivery_date.toString() }),
             ...(order.actual_delivery_date && { receivedDate: order.actual_delivery_date.toString() }),
             ...(order.status && { status: order.status }),
+            ...(order.subtotal !== null && order.subtotal !== undefined && { subtotal: parseFloat(order.subtotal.toString()) }),
+            ...(order.discount !== null && order.discount !== undefined && { discount: parseFloat(order.discount.toString()) }),
+            ...(order.shipping_cost !== null && order.shipping_cost !== undefined && { shippingCost: parseFloat(order.shipping_cost.toString()) }),
             ...(order.total !== null && order.total !== undefined && { totalAmount: parseFloat(order.total.toString()) }),
+            ...(order.payment_terms && { paymentTerms: order.payment_terms }),
             ...(order.notes && { notes: order.notes }),
             ...(order.created_by && { createdBy: order.created_by }),
             ...(items.length > 0 && { items }),
@@ -66,6 +70,9 @@ export class PurchaseOrderService {
         const order = await PurchaseOrderRepository.create({
             supplier_id: data.supplierId,
             warehouse_id: data.warehouseId,
+            ...(data.discount !== undefined && { discount: data.discount }),
+            ...(data.shippingCost !== undefined && { shipping_cost: data.shippingCost }),
+            payment_terms: data.paymentTerms,
             ...(data.expectedDate && { expected_delivery_date: data.expectedDate }),
             ...(data.notes && { notes: data.notes }),
             ...(userId && { created_by: userId })

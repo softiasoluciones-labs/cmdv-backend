@@ -1,6 +1,5 @@
-import { models } from '../../../../database';
+import { models, sequelize } from '../../../../database';
 import { products, productsCreationAttributes } from '../../../../database/inventory/products';
-import { product_categories } from '../../../../database/inventory/product_categories';
 //import { warehouse_stock } from '../../../database/inventory/warehouse_stock';
 import { secureLogger } from '../../../../utils/secure-logger.utils';
 import { Op } from 'sequelize';
@@ -45,6 +44,35 @@ export class ProductRepository {
                     attributes: ['id', 'name', 'code']
                 }],
                 attributes: {
+                    include: [
+                        // Subconsulta para sumar quantity total (suma de todas las bodegas)
+                        [
+                            sequelize.literal(`(
+                                SELECT COALESCE(SUM(ws.quantity), 0)
+                                FROM inventory.warehouse_stock AS ws
+                                WHERE ws.product_id = products.id
+                            )`),
+                            'totalStockQuantity'
+                        ],
+                        // Subconsulta para sumar reserved_quantity
+                        [
+                            sequelize.literal(`(
+                                SELECT COALESCE(SUM(ws.reserved_quantity), 0)
+                                FROM inventory.warehouse_stock AS ws
+                                WHERE ws.product_id = products.id
+                            )`),
+                            'totalReservedQuantity'
+                        ],
+                        // Subconsulta para sumar available_quantity (puede ser también derivada de quantity - reserved)
+                        [
+                            sequelize.literal(`(
+                                SELECT COALESCE(SUM(ws.available_quantity), 0)
+                                FROM inventory.warehouse_stock AS ws
+                                WHERE ws.product_id = products.id
+                            )`),
+                            'totalAvailableQuantity'
+                        ]
+                    ],
                     exclude: ['createdAt', 'updatedAt']
                 },
                 limit,

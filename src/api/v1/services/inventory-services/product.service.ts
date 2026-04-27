@@ -10,6 +10,10 @@ export class ProductService {
      * Transform product model to response DTO
      */
     private static toProductResponse(product: products): ProductResponse {
+        const totalStockQuantity = product.get('totalStockQuantity') as string | undefined;
+        const totalReservedQuantity = product.get('totalReservedQuantity') as string | undefined;
+        const totalAvailableQuantity = product.get('totalAvailableQuantity') as string | undefined;
+        
         return {
             id: product.id,
             code: product.code,
@@ -28,6 +32,9 @@ export class ProductService {
             ...(product.requires_refrigeration !== undefined && { requiresRefrigeration: product.requires_refrigeration }),
             ...(product.expiration_alert_days !== undefined && { expirationAlertDays: product.expiration_alert_days }),
             ...(product.is_active !== undefined && { isActive: product.is_active }),
+            ...(totalStockQuantity !== undefined && { totalStockQuantity: parseFloat(totalStockQuantity) }),
+            ...(totalReservedQuantity !== undefined && { totalReservedQuantity: parseFloat(totalReservedQuantity) }),
+            ...(totalAvailableQuantity !== undefined && { totalAvailableQuantity: parseFloat(totalAvailableQuantity) }),
             ...(product.created_at !== undefined && { createdAt: product.created_at }),
             ...(product.updated_at !== undefined && { updatedAt: product.updated_at })
         };

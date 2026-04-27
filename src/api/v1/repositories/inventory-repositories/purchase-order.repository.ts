@@ -122,14 +122,17 @@ export class PurchaseOrderRepository {
             const orderNumber = await this.generateOrderNumber(transaction);
 
             // Calculate total amount
-            const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
+            const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
+            const discount = (orderData as any).discount ?? 0;
+            const shippingCost = (orderData as any).shipping_cost ?? 0;
+            const total = subtotal - discount + shippingCost;
 
             // Create purchase order
             const order = await models.purchase_orders.create({
                 ...orderData,
                 po_number: orderNumber,
-                subtotal: totalAmount,
-                total: totalAmount,
+                subtotal,
+                total,
                 status: 'draft'
             } as purchase_ordersCreationAttributes, { transaction });
 
