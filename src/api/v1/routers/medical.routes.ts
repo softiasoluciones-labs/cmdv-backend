@@ -20,9 +20,13 @@ import {
 // New imports for admission types and case files
 import { AdmissionTypeController } from '../controllers/medical-controllers/admission-type-controller';
 import { CaseFileController } from '../controllers/medical-controllers/case-file-controller';
+import { CaseFileService } from '../services/medical-services/case-file-service';
+import { CaseFileRepository } from '../repositories/medical-repositories/case-file-repository';
 import { PackageController } from '../controllers/medical-controllers/package-controller';
 
 const router = Router();
+
+const caseFileController = new CaseFileController(new CaseFileService(new CaseFileRepository()));
 
 console.log('✅ Medical routes module loaded');
 console.log('📦 PackageController:', PackageController ? 'Loaded' : 'Not loaded');
@@ -59,27 +63,29 @@ router.post('/admission-types', AdmissionTypeController.createAdmissionType);
 router.put('/admission-types/:id', AdmissionTypeController.updateAdmissionType);
 router.delete('/admission-types/:id', AdmissionTypeController.deleteAdmissionType);
 
-// packages routes 
+// packages routes
 console.log('Registering packages route. Controller:', PackageController);
 router.get('/packages', (req, res, next) => {
-    console.log('Route /packages hit');
-    PackageController.getAll(req, res).catch(next);
+PackageController.getAll(req, res).catch(next);
 });
 router.get('/packages/:id', PackageController.getById);
-//router.post('/packages', PackageController.create);
-//router.put('/packages/:id', PackageController.update);
-//router.delete('/packages/:id', PackageController.delete);
+router.get('/packageDetail/:id', PackageController.getPackageDetails);
+router.post('/packages', PackageController.create);
+router.patch('/packages/:id/deactivate', PackageController.deactivate);
+router.post('/packages/:id/copy', PackageController.copyPackage);
+router.patch('/remove-item-detail/:id-detail', PackageController.removeItemDetail);
+router.put('/packages/:id', PackageController.update);
 
 // Case Files routes
-router.get('/case-files', CaseFileController.getAllCaseFiles);
-router.get('/case-files/case-number/:caseNumber', CaseFileController.getCaseFileByCaseNumber);
-router.get('/case-files/:id', CaseFileController.getCaseFileById);
-router.get('/case-files/:id/validation', CaseFileController.validateCaseFile);
-router.get('/case-files/:id/can-transfer', CaseFileController.canTransferCase);
-router.get('/case-files/:id/can-close', CaseFileController.canCloseCase);
-router.post('/case-files', CaseFileController.createCaseFile);
-router.put('/case-files/:id', CaseFileController.updateCaseFile);
-router.patch('/case-files/:id/status', CaseFileController.updateCaseStatus);
-router.delete('/case-files/:id', CaseFileController.deleteCaseFile);
+router.get('/case-files', caseFileController.getAllCaseFiles);
+router.get('/case-files/case-number/:caseNumber', caseFileController.getCaseFileByCaseNumber);
+router.get('/case-files/:id', caseFileController.getCaseFileById);
+router.get('/case-files/:id/validation', caseFileController.validateCaseFile);
+router.get('/case-files/:id/can-transfer', caseFileController.canTransferCase);
+router.get('/case-files/:id/can-close', caseFileController.canCloseCase);
+router.post('/case-files', caseFileController.createCaseFile);
+router.put('/case-files/:id', caseFileController.updateCaseFile);
+router.patch('/case-files/:id/status', caseFileController.updateCaseStatus);
+router.delete('/case-files/:id', caseFileController.deleteCaseFile);
 
 export { router as medicalRoutes };

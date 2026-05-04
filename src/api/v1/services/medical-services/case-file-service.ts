@@ -1,156 +1,116 @@
+import { sequelize, models } from '../../../../database';
 import { CaseFileRepository } from '../../repositories/medical-repositories/case-file-repository';
 import { AdmissionTypeRepository } from '../../repositories/medical-repositories/admission-type-repository';
-import { CaseFileResponse, CaseFileListResponse, CreateCaseFileRequest, UpdateCaseFileRequest, UpdateCaseStatusRequest, CaseValidationResponse, CaseStatus, CaseStatusFlow, ShiftType } from '../../dtos/medical-dtos/case-file.dto';
-import { CaseFileValidator } from '../../validators/medical-validators/case-file.validator';
-import { case_files } from '../../../../database/medical/case_files';
-import { models } from '../../../../database';
 import { PatientRepository } from '../../repositories/medical-repositories/patient-repository';
+import {
+    CaseFileResponse,
+    CaseFileListResponse,
+    CreateCaseFileRequest,
+    UpdateCaseFileRequest,
+    UpdateCaseStatusRequest,
+    CaseValidationResponse,
+    CaseStatus,
+    CaseStatusFlow,
+    ShiftType
+} from '../../dtos/medical-dtos/case-file.dto';
+import { CaseFileValidator, STATUS_FLOW_TO_CASE_STATUS } from '../../validators/medical-validators/case-file.validator';
+import { case_files } from '../../../../database/medical/case_files';
+import { secureLogger } from '../../../../utils/secure-logger.utils';
 
-/**
- * Service for case files business logic
- */
 export class CaseFileService {
-    /*private repository: CaseFileRepository;
-    private admissionTypeRepository: AdmissionTypeRepository;
+    constructor(private readonly caseFileRepo: CaseFileRepository) {}
 
-    constructor() {
-        this.repository = new CaseFileRepository();
-        this.admissionTypeRepository = new AdmissionTypeRepository();
-    }
-    */
-
-    /**
-     * Get all case files with pagination and filtering
-     */
-    static async getAllCaseFiles(options?: {
+    async getAllCaseFiles(options?: {
         page?: number;
         limit?: number;
         patient_id?: string;
         admission_type_id?: string;
         case_status?: CaseStatus;
         status_flow?: CaseStatusFlow;
+        shift_type?: ShiftType;
         from_date?: Date;
         to_date?: Date;
     }): Promise<{ cases: CaseFileListResponse[]; total: number; page: number; totalPages: number }> {
-        const result = await CaseFileRepository.findAll(options);
-        const page = options?.page || 1;
-        const limit = options?.limit || 20;
-        const totalPages = Math.ceil(result.total / limit);
+        const result = await this.caseFileRepo.findAll(options);
+        const page = options?.page ?? 1;
+        const limit = options?.limit ?? 20;
 
         return {
-            cases: result.cases.map(caseFile => CaseFileService.toListResponse(caseFile)),
+            cases: result.cases.map(CaseFileService.toListResponse),
             total: result.total,
             page,
-            totalPages
+            totalPages: Math.ceil(result.total / limit)
         };
     }
 
-    /**
-     * Get case file by ID
-     */
-    static async getCaseFileById(id: string): Promise<CaseFileResponse> {
-        const caseFile = await CaseFileRepository.findById(id);
-
-        if (!caseFile) {
-            throw new Error(`Case file with ID ${id} not found`);
-        }
-
+    async getCaseFileById(id: string): Promise<CaseFileResponse> {
+        const caseFile = await this.caseFileRepo.findById(id);
+        if (!caseFile) throw new Error(`Case file with ID ${id} not found`);
         return CaseFileService.toResponse(caseFile);
     }
 
-    /**
-     * Get case file by case number
-     */
-    static async getCaseFileByCaseNumber(caseNumber: string): Promise<CaseFileResponse> {
-        const caseFile = await CaseFileRepository.findByCaseNumber(caseNumber);
-
-        if (!caseFile) {
-            throw new Error(`Case file with case number ${caseNumber} not found`);
-        }
-
+    async getCaseFileByCaseNumber(caseNumber: string): Promise<CaseFileResponse> {
+        const caseFile = await this.caseFileRepo.findByCaseNumber(caseNumber);
+        if (!caseFile) throw new Error(`Case file with case number ${caseNumber} not found`);
         return CaseFileService.toResponse(caseFile);
     }
 
-    /**
-     * Create new case file with business rules validation
-     */
-    static async createCaseFile(data: CreateCaseFileRequest, createdBy?: string): Promise<CaseFileResponse> {
-        // 1. Validate patient exists
+    async createCaseFile(data: CreateCaseFileRequest, createdBy?: string): Promise<CaseFileResponse> {
+        // Pre-transaction read-only validations
         const patient = await PatientRepository.findById(data.patient_id);
-        if (!patient) {
-            throw new Error(`Patient with ID ${data.patient_id} not found`);
-        }
+        if (!patient) throw new Error(`Patient with ID ${data.patient_id} not found`);
 
-        // 2. Load admission type rules
         const admissionType = await AdmissionTypeRepository.findById(data.admission_type_id);
-        if (!admissionType) {
-            throw new Error(`Admission type with ID ${data.admission_type_id} not found`);
-        }
+        if (!admissionType) throw new Error(`Admission type with ID ${data.admission_type_id} not found`);
+        if (!admissionType.is_active) throw new Error(`Admission type "${admissionType.name}" is not active`);
 
-        if (!admissionType.is_active) {
-            throw new Error(`Admission type "${admissionType.name}" is not active`);
-        }
-
-        // 3. Validate business rules
         const validationResults = CaseFileValidator.validateCaseCreation(data, admissionType);
-        console.log("Validation results:", validationResults);
-
         if (CaseFileValidator.hasErrors(validationResults)) {
-            const errors = CaseFileValidator.getErrorMessages(validationResults);
-            throw new Error(`Validation failed: ${errors.join(', ')}`);
+            throw new Error(`Validation failed: ${CaseFileValidator.getErrorMessages(validationResults).join(', ')}`);
         }
 
-        // Log warnings if any
         const warnings = CaseFileValidator.getWarningMessages(validationResults);
         if (warnings.length > 0) {
-            console.warn('Case creation warnings:', warnings);
+            secureLogger.error('Case creation warnings: ' + warnings.join(', '));
         }
 
-        // 4. Generate unique case number
-        const caseNumber = await CaseFileRepository.generateCaseNumber(data.admission_type_id);
+        const newCase = await sequelize.transaction(async (t) => {
+            const caseNumber = await this.caseFileRepo.generateCaseNumber(data.admission_type_id, t);
 
-        // 5. Create case file record
-        const caseFile = await CaseFileRepository.create({
-            patient_id: data.patient_id,
-            admission_type_id: data.admission_type_id,
-            case_number: caseNumber,
-            chief_complaint: data.chief_complaint,
-            ...(data.initial_diagnosis !== undefined && { initial_diagnosis: data.initial_diagnosis }),
-            ...(data.shift_type !== undefined && { shift_type: data.shift_type }),
-            ...(data.notes !== undefined && { notes: data.notes }),
-            ...(data.is_transfer !== undefined && { is_transfer: data.is_transfer }),
-            ...(data.transfer_from_case_id !== undefined && { transfer_from_case_id: data.transfer_from_case_id }),
-            ...(createdBy !== undefined && { created_by: createdBy })
-        });
+            const caseFile = await this.caseFileRepo.create({
+                patient_id: data.patient_id,
+                admission_type_id: data.admission_type_id,
+                admission_type_code: admissionType.code,
+                case_number: caseNumber,
+                chief_complaint: data.chief_complaint,
+                ...(data.initial_diagnosis !== undefined && { initial_diagnosis: data.initial_diagnosis }),
+                ...(data.shift_type !== undefined && { shift_type: data.shift_type }),
+                ...(data.notes !== undefined && { notes: data.notes }),
+                ...(data.is_transfer !== undefined && { is_transfer: data.is_transfer }),
+                ...(data.transfer_from_case_id !== undefined && { transfer_from_case_id: data.transfer_from_case_id }),
+                ...(createdBy !== undefined && { created_by: createdBy })
+            }, t);
 
-        // 6. Create related records if needed
-        try {
-            // Create room assignment if provided
             if (data.room_id) {
                 await models.case_rooms.create({
                     case_file_id: caseFile.id,
                     room_id: data.room_id,
                     check_in: new Date(),
                     daily_rate: 0
-                });
+                }, { transaction: t });
             }
 
-            // Create package assignment if provided
             if (data.package_id && data.doctor_id) {
-                // Get package details to determine price
-                const pkg = await CaseFileService.getPackageDetails(data.package_id, data.doctor_id);
-
                 await models.case_package_assignments.create({
                     case_file_id: caseFile.id,
                     package_id: data.package_id,
                     doctor_id: data.doctor_id,
-                    doctor_type_used: pkg.doctor_type,
-                    price_applied: pkg.price,
+                    doctor_type_used: 'internal',
+                    price_applied: 0,
                     assigned_date: new Date()
-                });
+                }, { transaction: t });
             }
 
-            // 7. Create initial timeline entry
             await models.case_timeline.create({
                 case_file_id: caseFile.id,
                 stage: 'Case Created',
@@ -159,9 +119,8 @@ export class CaseFileService {
                 notes: `Case created with admission type: ${admissionType.name}`,
                 shift_type: caseFile.shift_type,
                 ...(createdBy !== undefined && { created_by: createdBy })
-            });
+            }, { transaction: t });
 
-            // 8. Create initial status history entry
             await models.case_status_history.create({
                 case_file_id: caseFile.id,
                 from_status: CaseStatusFlow.C1_CREACION,
@@ -169,36 +128,25 @@ export class CaseFileService {
                 transition_date: new Date(),
                 reason: 'Initial case creation',
                 ...(createdBy !== undefined && { performed_by: createdBy })
-            });
+            }, { transaction: t });
 
-        } catch (error) {
-            // If related records fail, we should rollback the case file creation
-            // TODO: Implement transaction support
-            console.error('Error creating related records:', error);
-            throw new Error(`Failed to create case file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+            return caseFile;
+        });
 
-        // 9. Return complete case file with relations
-        const createdCase = await CaseFileRepository.findById(caseFile.id);
-        if (!createdCase) {
-            throw new Error('Failed to retrieve created case file');
-        }
+        const createdCase = await this.caseFileRepo.findById(newCase.id);
+        if (!createdCase) throw new Error('Failed to retrieve created case file');
 
         return CaseFileService.toResponse(createdCase);
     }
 
-    /**
-     * Update case file
-     */
-    static async updateCaseFile(id: string, data: UpdateCaseFileRequest): Promise<CaseFileResponse> {
-        // Load existing case
-        const existingCase = await CaseFileRepository.findById(id);
-        if (!existingCase) {
-            throw new Error(`Case file with ID ${id} not found`);
-        }
+    async updateCaseFile(id: string, data: UpdateCaseFileRequest): Promise<CaseFileResponse> {
+        const existingCase = await this.caseFileRepo.findById(id);
+        if (!existingCase) throw new Error(`Case file with ID ${id} not found`);
 
-        // If status is being changed, validate transition
-        if (data.current_status_flow && data.current_status_flow !== existingCase.current_status_flow) {
+        const flowChanged = data.current_status_flow !== undefined &&
+            data.current_status_flow !== existingCase.current_status_flow;
+
+        if (flowChanged) {
             if (!existingCase.admissionType) {
                 throw new Error('Cannot validate status transition: admission type not loaded');
             }
@@ -206,141 +154,132 @@ export class CaseFileService {
             const validation = CaseFileValidator.validateStatusTransition(
                 existingCase.admissionType,
                 existingCase.current_status_flow as CaseStatusFlow,
-                data.current_status_flow,
-                false // TODO: Check payment status
+                data.current_status_flow!,
+                false // TODO: Check payment status when billing module is integrated
             );
 
-            if (!validation.valid) {
-                throw new Error(validation.message);
+            if (!validation.valid) throw new Error(validation.message);
+        }
+
+        await sequelize.transaction(async (t) => {
+            const updatePayload: Parameters<CaseFileRepository['update']>[1] = {
+                ...(data.discharge_date !== undefined && { discharge_date: data.discharge_date }),
+                ...(data.initial_diagnosis !== undefined && { initial_diagnosis: data.initial_diagnosis }),
+                ...(data.final_diagnosis !== undefined && { final_diagnosis: data.final_diagnosis }),
+                ...(data.notes !== undefined && { notes: data.notes }),
+            };
+
+            if (flowChanged) {
+                const newFlow = data.current_status_flow!;
+                updatePayload.current_status_flow = newFlow;
+                updatePayload.case_status = STATUS_FLOW_TO_CASE_STATUS[newFlow];
+
+                if (CaseFileValidator.isClosingStatus(newFlow) && !data.discharge_date) {
+                    updatePayload.discharge_date = new Date();
+                }
+
+                await models.case_status_history.create({
+                    case_file_id: id,
+                    from_status: existingCase.current_status_flow as CaseStatusFlow,
+                    to_status: newFlow,
+                    transition_date: new Date(),
+                    reason: 'Status updated via API'
+                }, { transaction: t });
+
+                if (CaseFileValidator.isSignificantStatusChange(newFlow)) {
+                    await models.case_timeline.create({
+                        case_file_id: id,
+                        stage: CaseFileValidator.getStageNameForStatus(newFlow),
+                        started_at: new Date(),
+                        status_flow: newFlow
+                    }, { transaction: t });
+                }
+            } else if (data.case_status !== undefined) {
+                updatePayload.case_status = data.case_status;
             }
 
-            // Create status history entry
-            await models.case_status_history.create({
-                case_file_id: id,
-                from_status: existingCase.current_status_flow as CaseStatusFlow,
-                to_status: data.current_status_flow,
-                transition_date: new Date(),
-                reason: 'Status updated via API'
-            });
-        }
+            await this.caseFileRepo.update(id, updatePayload, t);
+        });
 
-        // Update case file
-        await CaseFileRepository.update(id, data);
-
-        // Return updated case
-        const updatedCase = await CaseFileRepository.findById(id);
-        if (!updatedCase) {
-            throw new Error('Failed to retrieve updated case file');
-        }
+        const updatedCase = await this.caseFileRepo.findById(id);
+        if (!updatedCase) throw new Error('Failed to retrieve updated case file');
 
         return CaseFileService.toResponse(updatedCase);
     }
 
-    /**
-     * Update case status only
-     */
-    static async updateCaseStatus(id: string, data: UpdateCaseStatusRequest, performedBy?: string): Promise<CaseFileResponse> {
-        // Load existing case
-        const existingCase = await CaseFileRepository.findById(id);
-        if (!existingCase) {
-            throw new Error(`Case file with ID ${id} not found`);
-        }
+    async updateCaseStatus(id: string, data: UpdateCaseStatusRequest, performedBy?: string): Promise<CaseFileResponse> {
+        const existingCase = await this.caseFileRepo.findById(id);
+        if (!existingCase) throw new Error(`Case file with ID ${id} not found`);
 
         if (!existingCase.admissionType) {
             throw new Error('Cannot validate status transition: admission type not loaded');
         }
 
-        // Validate status transition
         const validation = CaseFileValidator.validateStatusTransition(
             existingCase.admissionType,
             existingCase.current_status_flow as CaseStatusFlow,
             data.status,
-            false // TODO: Check payment status
+            false // TODO: Check payment status when billing module is integrated
         );
 
-        if (!validation.valid) {
-            throw new Error(validation.message);
-        }
+        if (!validation.valid) throw new Error(validation.message);
 
-        // Log warnings
         if (validation.message) {
-            console.warn('Status transition warning:', validation.message);
+            secureLogger.error('Status transition warning: ' + validation.message);
         }
 
-        // Update status
-        await CaseFileRepository.update(id, {
-            current_status_flow: data.status
-        });
+        await sequelize.transaction(async (t) => {
+            const updatePayload: Parameters<CaseFileRepository['update']>[1] = {
+                current_status_flow: data.status,
+                case_status: STATUS_FLOW_TO_CASE_STATUS[data.status],
+                ...(CaseFileValidator.isClosingStatus(data.status) && { discharge_date: new Date() })
+            };
 
-        // Create status history entry
-        await models.case_status_history.create({
-            case_file_id: id,
-            from_status: existingCase.current_status_flow as CaseStatusFlow,
-            to_status: data.status,
-            transition_date: new Date(),
-            reason: data.reason || 'Status updated',
-            ...(data.notes !== undefined && { notes: data.notes }),
-            ...(performedBy !== undefined && { performed_by: performedBy })
-        });
+            await this.caseFileRepo.update(id, updatePayload, t);
 
-        // Create timeline entry for significant status changes
-        if (CaseFileService.isSignificantStatusChange(data.status)) {
-            await models.case_timeline.create({
+            await models.case_status_history.create({
                 case_file_id: id,
-                stage: CaseFileService.getStageNameForStatus(data.status),
-                started_at: new Date(),
-                status_flow: data.status,
+                from_status: existingCase.current_status_flow as CaseStatusFlow,
+                to_status: data.status,
+                transition_date: new Date(),
+                reason: data.reason ?? 'Status updated',
                 ...(data.notes !== undefined && { notes: data.notes }),
-                ...(performedBy !== undefined && { created_by: performedBy })
-            });
-        }
+                ...(performedBy !== undefined && { performed_by: performedBy })
+            }, { transaction: t });
 
-        // Return updated case
-        const updatedCase = await CaseFileRepository.findById(id);
-        if (!updatedCase) {
-            throw new Error('Failed to retrieve updated case file');
-        }
+            if (CaseFileValidator.isSignificantStatusChange(data.status)) {
+                await models.case_timeline.create({
+                    case_file_id: id,
+                    stage: CaseFileValidator.getStageNameForStatus(data.status),
+                    started_at: new Date(),
+                    status_flow: data.status,
+                    ...(data.notes !== undefined && { notes: data.notes }),
+                    ...(performedBy !== undefined && { created_by: performedBy })
+                }, { transaction: t });
+            }
+        });
 
-        return this.toResponse(updatedCase);
+        const updatedCase = await this.caseFileRepo.findById(id);
+        if (!updatedCase) throw new Error('Failed to retrieve updated case file');
+
+        return CaseFileService.toResponse(updatedCase);
     }
 
-    /**
-     * Delete case file
-     */
-    static async deleteCaseFile(id: string): Promise<void> {
-        try {
-            await CaseFileRepository.delete(id);
-        } catch (error) {
-            throw new Error(`Failed to delete case file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
+    async deleteCaseFile(id: string): Promise<void> {
+        const deleted = await this.caseFileRepo.delete(id);
+        if (!deleted) throw new Error(`Case file with ID ${id} not found`);
     }
 
-    /**
-     * Validate case compliance
-     */
-    static async validateCaseCompliance(id: string): Promise<CaseValidationResponse> {
-        const validation = await CaseFileRepository.validateCompliance(id);
-
-        if (!validation) {
-            throw new Error(`Case file with ID ${id} not found`);
-        }
-
+    async validateCaseCompliance(id: string): Promise<CaseValidationResponse> {
+        const validation = await this.caseFileRepo.validateCompliance(id);
+        if (!validation) throw new Error(`Case file with ID ${id} not found`);
         return validation;
     }
 
-    /**
-     * Check if case can be transferred
-     */
-    static async canTransferCase(id: string): Promise<{ allowed: boolean; reason?: string }> {
-        const caseFile = await CaseFileRepository.findById(id);
-
-        if (!caseFile) {
-            return { allowed: false, reason: 'Case file not found' };
-        }
-
-        if (!caseFile.admissionType) {
-            return { allowed: false, reason: 'Admission type not loaded' };
-        }
+    async canTransferCase(id: string): Promise<{ allowed: boolean; reason?: string }> {
+        const caseFile = await this.caseFileRepo.findById(id);
+        if (!caseFile) return { allowed: false, reason: 'Case file not found' };
+        if (!caseFile.admissionType) return { allowed: false, reason: 'Admission type not loaded' };
 
         if (!caseFile.admissionType.allows_transfer) {
             return {
@@ -349,8 +288,7 @@ export class CaseFileService {
             };
         }
 
-        // Check if case is in a transferable status
-        const transferableStatuses = [
+        const transferableStatuses: CaseStatusFlow[] = [
             CaseStatusFlow.CE_CARGOS_EXPEDIENTE,
             CaseStatusFlow.CC_CONFIRMACION_CARGOS
         ];
@@ -365,24 +303,13 @@ export class CaseFileService {
         return { allowed: true };
     }
 
-    /**
-     * Check if case can be closed
-     */
-    static async canCloseCase(id: string): Promise<{ allowed: boolean; reason?: string }> {
-        const caseFile = await CaseFileRepository.findById(id);
+    async canCloseCase(id: string): Promise<{ allowed: boolean; reason?: string }> {
+        const caseFile = await this.caseFileRepo.findById(id);
+        if (!caseFile) return { allowed: false, reason: 'Case file not found' };
+        if (!caseFile.admissionType) return { allowed: false, reason: 'Admission type not loaded' };
 
-        if (!caseFile) {
-            return { allowed: false, reason: 'Case file not found' };
-        }
-
-        if (!caseFile.admissionType) {
-            return { allowed: false, reason: 'Admission type not loaded' };
-        }
-
-        // Check payment requirement
         if (caseFile.admissionType.requires_immediate_payment) {
-            // TODO: Check billing.invoices when available
-            console.warn('Payment validation skipped: billing module not integrated');
+            // TODO: Check billing.invoices when billing module is integrated
             return {
                 allowed: true,
                 reason: 'Payment validation pending (billing module not integrated)'
@@ -392,56 +319,6 @@ export class CaseFileService {
         return { allowed: true };
     }
 
-    /**
-     * Helper: Get package details including price based on doctor type
-     */
-    static async getPackageDetails(packageId: string, doctorId: string): Promise<{
-        doctor_type: 'internal' | 'external';
-        price: number;
-    }> {
-        // TODO: Implement proper package and doctor lookup
-        // For now, return default values
-        return {
-            doctor_type: 'internal',
-            price: 0
-        };
-    }
-
-    /**
-     * Helper: Check if status change is significant enough for timeline entry
-     */
-    private static isSignificantStatusChange(status: CaseStatusFlow): boolean {
-        const significantStatuses = [
-            CaseStatusFlow.C3_CERRADO,
-            CaseStatusFlow.C2_CANCELACION,
-            CaseStatusFlow.TR_TRASLADO_PROCEDIMIENTO,
-            CaseStatusFlow.RA_REAPERTURA
-        ];
-
-        return significantStatuses.includes(status);
-    }
-
-    /**
-     * Helper: Get human-readable stage name for status
-     */
-    private static getStageNameForStatus(status: CaseStatusFlow): string {
-        const stageNames: Record<CaseStatusFlow, string> = {
-            [CaseStatusFlow.C1_CREACION]: 'Case Created',
-            [CaseStatusFlow.C2_CANCELACION]: 'Case Cancelled',
-            [CaseStatusFlow.C3_CERRADO]: 'Case Closed',
-            [CaseStatusFlow.CE_CARGOS_EXPEDIENTE]: 'Charges Applied',
-            [CaseStatusFlow.CC_CONFIRMACION_CARGOS]: 'Charges Confirmed',
-            [CaseStatusFlow.TR_TRASLADO_PROCEDIMIENTO]: 'Case Transferred',
-            [CaseStatusFlow.RA_REAPERTURA]: 'Case Reopened',
-            [CaseStatusFlow.EX_EXTORNO]: 'Case Reversed'
-        };
-
-        return stageNames[status] || status;
-    }
-
-    /**
-     * Convert database model to list response DTO
-     */
     private static toListResponse(caseFile: case_files): CaseFileListResponse {
         const patientName = caseFile.patient
             ? `${caseFile.patient.first_name} ${caseFile.patient.last_name}`.trim()
@@ -456,28 +333,23 @@ export class CaseFileService {
             case_status: caseFile.case_status as CaseStatus,
             current_status_flow: caseFile.current_status_flow as CaseStatusFlow,
             ...(caseFile.shift_type && { shift_type: caseFile.shift_type as ShiftType }),
-            ...(caseFile.total_cost !== null && caseFile.total_cost !== undefined && {
-                total_cost: parseFloat(caseFile.total_cost.toString())
-            })
+            ...(caseFile.total_cost != null && { total_cost: parseFloat(caseFile.total_cost.toString()) })
         };
     }
 
-    /**
-     * Convert database model to response DTO
-     */
     private static toResponse(caseFile: case_files): CaseFileResponse {
         return {
             id: caseFile.id,
             case_number: caseFile.case_number,
             patient_id: caseFile.patient_id,
             admission_date: caseFile.admission_date,
-            ...(caseFile.discharge_date ? { discharge_date: caseFile.discharge_date } : {}),
+            ...(caseFile.discharge_date && { discharge_date: caseFile.discharge_date }),
             admission_type: caseFile.admission_type,
             chief_complaint: caseFile.chief_complaint,
-            ...(caseFile.initial_diagnosis ? { initial_diagnosis: caseFile.initial_diagnosis } : {}),
-            ...(caseFile.final_diagnosis ? { final_diagnosis: caseFile.final_diagnosis } : {}),
+            ...(caseFile.initial_diagnosis && { initial_diagnosis: caseFile.initial_diagnosis }),
+            ...(caseFile.final_diagnosis && { final_diagnosis: caseFile.final_diagnosis }),
             case_status: caseFile.case_status as CaseStatus,
-            ...(caseFile.total_cost !== null && caseFile.total_cost !== undefined && { total_cost: parseFloat(caseFile.total_cost.toString()) }),
+            ...(caseFile.total_cost != null && { total_cost: parseFloat(caseFile.total_cost.toString()) }),
             shift_type: caseFile.shift_type as ShiftType,
             current_status_flow: caseFile.current_status_flow as CaseStatusFlow,
             ...(caseFile.is_transfer !== undefined && { is_transfer: caseFile.is_transfer }),
@@ -510,17 +382,17 @@ export class CaseFileService {
             ...(caseFile.case_rooms && {
                 rooms: caseFile.case_rooms.map((cr) => ({
                     id: cr.id,
-                    room_number: cr.room?.room_number || 'Unknown',
-                    room_type: cr.room?.room_type || 'Unknown',
+                    room_number: cr.room?.room_number ?? 'Unknown',
+                    room_type: cr.room?.room_type ?? 'Unknown',
                     check_in_date: cr.check_in,
-                    ...(cr.check_out ? { check_out_date: cr.check_out } : {})
+                    ...(cr.check_out && { check_out_date: cr.check_out })
                 }))
             }),
             ...(caseFile.case_package_assignments && {
                 packages: caseFile.case_package_assignments.map((pa) => ({
                     id: pa.id,
-                    package_name: pa.package?.name || 'Unknown',
-                    doctor_name: 'Doctor', // TODO: Get doctor name from relation
+                    package_name: pa.package?.name ?? 'Unknown',
+                    doctor_name: 'Doctor', // TODO: expand doctor relation when needed
                     price_applied: parseFloat(pa.price_applied.toString())
                 }))
             })

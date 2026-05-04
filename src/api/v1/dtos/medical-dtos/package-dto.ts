@@ -21,6 +21,13 @@ export interface PackageDetailResponse {
     notes?: string;
 }
 
+export interface PackageDetailDto { 
+    package_id: string;
+    product_id: string;
+    quantity: number;
+    notes?: string;
+}
+
 export interface PackageListResponse {
     id: string;
     name?: string;
@@ -37,4 +44,28 @@ export interface PackageListFilters {
     code?: string;
     service_id?: string;
     year?: number;
+}
+
+export interface CreatePackageDto {
+    code: string;
+    service_id: string;
+    name: string;
+    description?: string;
+    doctor_type: "internal" | "external";
+    internal_doctor_price?: number;
+    external_doctor_price?: number;
+    validity_days?: number;
+}
+
+export interface CopyPackageDto {
+name: string;
+description?: string;
+external_doctor_price?: number;
+internal_doctor_price?: number;
+}
+
+export interface UpdatePackageDto {
+description?: string;
+external_doctor_price?: number;
+internal_doctor_price?: number;
 }

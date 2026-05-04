@@ -1,7 +1,9 @@
 import { PackageRepository } from '../../repositories/medical-repositories/package-repository';
 import { packages } from '../../../../database/medical/packages';
-import { PackageResponse, PackageListResponse } from '../../dtos/medical-dtos/package-dto';
+import { PackageResponse, PackageListResponse, PackageDetailDto } from '../../dtos/medical-dtos/package-dto';
 import { PackageListFilters } from '../../dtos/medical-dtos/package-dto';
+import { CreatePackageDto, CopyPackageDto, UpdatePackageDto } from '../../dtos/medical-dtos/package-dto';
+import { package_details } from '../../../../database/medical/package_details';
 
 export class PackageService {
     private static toPackageResponse(type: packages): PackageResponse {
@@ -37,5 +39,29 @@ export class PackageService {
     }
     static async getPackageDetails(id: string) {
         return await PackageRepository.getPackageDetails(id);
+    }
+
+    static async removeItemPackageDetail (id: string) { 
+        return await PackageRepository.removeItemPackageDetail(id); 
+    }
+
+    static async addItemToPackage(data: PackageDetailDto) {
+        return await PackageRepository.createPackageDetail(data); 
+    } 
+
+    static async create(data: CreatePackageDto, userId: string) {
+        return await PackageRepository.create(data, userId);
+    }
+
+    static async deactivate(packageId: string, userId: string) {
+        return await PackageRepository.deactivate(packageId, userId);
+    }
+
+    static async copyPackage(sourcePackageId: string, data: CopyPackageDto, userId: string) {
+        return await PackageRepository.copyPackage(sourcePackageId, data, userId);
+    }
+
+    static async update(packageId: string, data: UpdatePackageDto, userId: string) {
+        return await PackageRepository.update(packageId, data, userId);
     }
 }

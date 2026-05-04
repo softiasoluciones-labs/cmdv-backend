@@ -1,34 +1,13 @@
 import { Request, Response } from 'express';
 import { CaseFileService } from '../../services/medical-services/case-file-service';
-import { CreateCaseFileRequest, UpdateCaseFileRequest, UpdateCaseStatusRequest, CaseStatus, CaseStatusFlow, ShiftType } from '../../dtos/medical-dtos/case-file.dto';
+import { CaseStatus, CaseStatusFlow, ShiftType } from '../../dtos/medical-dtos/case-file.dto';
 
-/**
- * Controller for case files REST API
- */
 export class CaseFileController {
-    /*private service: CaseFileService;
+    constructor(private readonly service: CaseFileService) {}
 
-    constructor() {
-        this.service = new CaseFileService();
-    }*/
-
-    /**
-     * GET /api/medical/case-files
-     * List all case files with pagination and filtering
-     */
-    static async getAllCaseFiles(req: Request, res: Response): Promise<void> {
+    getAllCaseFiles = async (req: Request, res: Response): Promise<void> => {
         try {
-            const {
-                page,
-                limit,
-                patient_id,
-                admission_type_id,
-                case_status,
-                status_flow,
-                shift_type,
-                from_date,
-                to_date
-            } = req.query;
+            const { page, limit, patient_id, admission_type_id, case_status, status_flow, shift_type, from_date, to_date } = req.query;
 
             const options: any = {};
             if (page) options.page = parseInt(page as string);
@@ -41,7 +20,7 @@ export class CaseFileController {
             if (from_date) options.from_date = new Date(from_date as string);
             if (to_date) options.to_date = new Date(to_date as string);
 
-            const result = await CaseFileService.getAllCaseFiles(options);
+            const result = await this.service.getAllCaseFiles(options);
 
             res.json({
                 success: true,
@@ -52,7 +31,7 @@ export class CaseFileController {
                     total: result.total,
                     page: result.page,
                     totalPages: result.totalPages,
-                    limit: options.limit || 20
+                    limit: options.limit ?? 20
                 }
             });
         } catch (error) {
@@ -62,270 +41,108 @@ export class CaseFileController {
                 message: error instanceof Error ? error.message : 'Internal server error'
             });
         }
-    }
+    };
 
-    /**
-     * GET /api/medical/case-files/:id
-     * Get single case file with all relations
-     */
-    static async getCaseFileById(req: Request, res: Response): Promise<void> {
+    getCaseFileById = async (req: Request, res: Response): Promise<void> => {
         try {
-            const id = req.params.id;
-            if (!id) {
-                throw new Error('Case file ID is required');
-            }
-
-            const caseFile = await CaseFileService.getCaseFileById(id);
-
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Case file retrieved successfully',
-                data: caseFile
-            });
+            const id = req.params['id'] as string;
+            const caseFile = await this.service.getCaseFileById(id);
+            res.status(200).json({ success: true, code: 200, message: 'Case file retrieved successfully', data: caseFile });
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 
-    /**
-     * GET /api/medical/case-files/case-number/:caseNumber
-     * Get case file by case number
-     */
-    static async getCaseFileByCaseNumber(req: Request, res: Response): Promise<void> {
+    getCaseFileByCaseNumber = async (req: Request, res: Response): Promise<void> => {
         try {
-            const caseNumber = req.params.caseNumber;
-            if (!caseNumber) {
-                throw new Error('Case number is required');
-            }
-
-            const caseFile = await CaseFileService.getCaseFileByCaseNumber(caseNumber);
-
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Case file retrieved successfully',
-                data: caseFile
-            });
+            const caseNumber = req.params['caseNumber'] as string;
+            const caseFile = await this.service.getCaseFileByCaseNumber(caseNumber);
+            res.status(200).json({ success: true, code: 200, message: 'Case file retrieved successfully', data: caseFile });
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 
-    /**
-     * GET /api/medical/case-files/:id/validation
-     * Get validation status for a case file
-     */
-    static async validateCaseFile(req: Request, res: Response): Promise<void> {
+    validateCaseFile = async (req: Request, res: Response): Promise<void> => {
         try {
-            const id = req.params.id;
-            if (!id) {
-                throw new Error('Case file ID is required');
-            }
-
-            const validation = await CaseFileService.validateCaseCompliance(id);
-
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Case file validation retrieved successfully',
-                data: validation
-            });
+            const id = req.params['id'] as string;
+            const validation = await this.service.validateCaseCompliance(id);
+            res.status(200).json({ success: true, code: 200, message: 'Case file validation retrieved successfully', data: validation });
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 
-    /**
-     * GET /api/medical/case-files/:id/can-transfer
-     * Check if case can be transferred
-     */
-    static async canTransferCase(req: Request, res: Response): Promise<void> {
+    canTransferCase = async (req: Request, res: Response): Promise<void> => {
         try {
-            const id = req.params.id;
-            if (!id) {
-                throw new Error('Case file ID is required');
-            }
-
-            const result = await CaseFileService.canTransferCase(id);
-
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Case file transferability retrieved successfully',
-                data: result
-            });
+            const id = req.params['id'] as string;
+            const result = await this.service.canTransferCase(id);
+            res.status(200).json({ success: true, code: 200, message: 'Case file transferability retrieved successfully', data: result });
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 
-    /**
-     * GET /api/medical/case-files/:id/can-close
-     * Check if case can be closed
-     */
-    static async canCloseCase(req: Request, res: Response): Promise<void> {
+    canCloseCase = async (req: Request, res: Response): Promise<void> => {
         try {
-            const id = req.params.id;
-            if (!id) {
-                throw new Error('Case file ID is required');
-            }
-
-            const result = await CaseFileService.canCloseCase(id);
-
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Case file closability retrieved successfully',
-                data: result
-            });
+            const id = req.params['id'] as string;
+            const result = await this.service.canCloseCase(id);
+            res.status(200).json({ success: true, code: 200, message: 'Case file closability retrieved successfully', data: result });
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 
-    /**
-     * POST /api/medical/case-files
-     * Create new case file
-     */
-    static async createCaseFile(req: Request, res: Response): Promise<void> {
+    createCaseFile = async (req: Request, res: Response): Promise<void> => {
         try {
-
-            // Get user ID from request (assuming auth middleware sets this)
             const createdBy = (req as any).user?.userId;
-            const caseFile = await CaseFileService.createCaseFile(req.body, createdBy);
-
-            res.status(201).json({
-                success: true,
-                code: 201,
-                data: caseFile,
-                message: 'Case file created successfully'
-            });
+            const caseFile = await this.service.createCaseFile(req.body, createdBy);
+            res.status(201).json({ success: true, code: 201, data: caseFile, message: 'Case file created successfully' });
         } catch (error) {
-            console.log("Error:", error);
-            // Use 422 for business rule violations
             const statusCode = error instanceof Error && error.message.includes('Validation failed') ? 422 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 
-    /**
-     * PUT /api/medical/case-files/:id
-     * Update case file
-     */
-    static async updateCaseFile(req: Request, res: Response): Promise<void> {
+    updateCaseFile = async (req: Request, res: Response): Promise<void> => {
         try {
-            const id = req.params.id;
-            if (!id) {
-                throw new Error('Case file ID is required');
-            }
-
-            const caseFile = await CaseFileService.updateCaseFile(id, req.body);
-
-            res.status(200).json({
-                success: true,
-                code: 200,
-                data: caseFile,
-                message: 'Case file updated successfully'
-            });
+            const id = req.params['id'] as string;
+            const caseFile = await this.service.updateCaseFile(id, req.body);
+            res.status(200).json({ success: true, code: 200, data: caseFile, message: 'Case file updated successfully' });
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 :
                 error instanceof Error && error.message.includes('Invalid') ? 422 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 
-    /**
-     * PATCH /api/medical/case-files/:id/status
-     * Update case status only
-     */
-    static async updateCaseStatus(req: Request, res: Response): Promise<void> {
+    updateCaseStatus = async (req: Request, res: Response): Promise<void> => {
         try {
-            const id = req.params.id;
-            if (!id) {
-                throw new Error('Case file ID is required');
-            }
-
-            // Get user ID from request
+            const id = req.params['id'] as string;
             const performedBy = (req as any).user?.id;
-
-            const caseFile = await CaseFileService.updateCaseStatus(id, req.body, performedBy);
-
-            res.status(200).json({
-                success: true,
-                code: 200,
-                data: caseFile,
-                message: 'Case status updated successfully'
-            });
+            const caseFile = await this.service.updateCaseStatus(id, req.body, performedBy);
+            res.status(200).json({ success: true, code: 200, data: caseFile, message: 'Case status updated successfully' });
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 :
                 error instanceof Error && error.message.includes('Invalid') ? 422 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 
-    /**
-     * DELETE /api/medical/case-files/:id
-     * Delete case file
-     */
-    static async deleteCaseFile(req: Request, res: Response): Promise<void> {
+    deleteCaseFile = async (req: Request, res: Response): Promise<void> => {
         try {
-            const id = req.params.id;
-            if (!id) {
-                throw new Error('Case file ID is required');
-            }
-            await CaseFileService.deleteCaseFile(id);
-
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Case file deleted successfully'
-            });
+            const id = req.params['id'] as string;
+            await this.service.deleteCaseFile(id);
+            res.status(200).json({ success: true, code: 200, message: 'Case file deleted successfully' });
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 :
                 error instanceof Error && error.message.includes('Cannot delete') ? 422 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-            });
+            res.status(statusCode).json({ success: false, code: statusCode, message: error instanceof Error ? error.message : 'Internal server error' });
         }
-    }
+    };
 }
