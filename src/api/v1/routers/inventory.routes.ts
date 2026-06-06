@@ -5,6 +5,7 @@ import { WarehouseController } from '../controllers/inventory-controllers/wareho
 import { SupplierController } from '../controllers/inventory-controllers/supplier-controller';
 import { StockMovementController } from '../controllers/inventory-controllers/stock-movement-controller';
 import { PurchaseController } from '../controllers/inventory-controllers/purchase-controller';
+import { PurchaseOrderPaymentController } from '../controllers/inventory-controllers/purchase-order-payment.controller';
 import {
     createProductValidator,
     updateProductValidator,
@@ -28,6 +29,11 @@ import {
     receivePurchaseOrderValidator,
     updateStatusValidator
 } from '../validators/inventory-validators/purchase-order-validator';
+import {
+    createPaymentValidator,
+    paymentIdValidator,
+    orderIdValidator
+} from '../validators/inventory-validators/purchase-order-payment.validator';
 
 const router = Router();
 
@@ -70,5 +76,12 @@ router.get('/purchase-orders/po-number/:poNumber', PurchaseController.getByPoNum
 router.post('/purchase-orders', createPurchaseOrderValidator, PurchaseController.create);
 router.patch('/purchase-orders/:id/status', updateStatusValidator, PurchaseController.updateStatus);
 router.post('/purchase-orders/:id/receive', receivePurchaseOrderValidator, PurchaseController.receive);
+
+// Purchase order payment routes
+router.get('/purchase-orders/:orderId/payments', orderIdValidator, PurchaseOrderPaymentController.getPaymentsByPurchaseOrder);
+router.get('/purchase-orders/:orderId/payments/summary', orderIdValidator, PurchaseOrderPaymentController.getPaymentSummary);
+router.get('/purchase-orders/:orderId/payments/:paymentId', paymentIdValidator, PurchaseOrderPaymentController.getPaymentById);
+router.post('/purchase-orders/:orderId/payments', createPaymentValidator, PurchaseOrderPaymentController.createPayment);
+router.delete('/purchase-orders/:orderId/payments/:paymentId', paymentIdValidator, PurchaseOrderPaymentController.deletePayment);
 
 export { router as inventoryRoutes };

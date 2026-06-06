@@ -5,6 +5,10 @@ import { products as _products } from "./products";
 import type { productsAttributes, productsCreationAttributes } from "./products";
 import { purchase_order_details as _purchase_order_details } from "./purchase_order_details";
 import type { purchase_order_detailsAttributes, purchase_order_detailsCreationAttributes } from "./purchase_order_details";
+import { purchase_order_payments as _purchase_order_payments } from "./purchase_order_payments";
+import type { purchase_order_paymentsAttributes, purchase_order_paymentsCreationAttributes } from "./purchase_order_payments";
+import { purchase_order_payment_details as _purchase_order_payment_details } from "./purchase_order_payment_details";
+import type { purchase_order_payment_detailsAttributes, purchase_order_payment_detailsCreationAttributes } from "./purchase_order_payment_details";
 import { purchase_orders as _purchase_orders } from "./purchase_orders";
 import type { purchase_ordersAttributes, purchase_ordersCreationAttributes } from "./purchase_orders";
 import { stock_movements as _stock_movements } from "./stock_movements";
@@ -22,6 +26,8 @@ export {
   _product_categories as product_categories,
   _products as products,
   _purchase_order_details as purchase_order_details,
+  _purchase_order_payments as purchase_order_payments,
+  _purchase_order_payment_details as purchase_order_payment_details,
   _purchase_orders as purchase_orders,
   _stock_movements as stock_movements,
   _suppliers as suppliers,
@@ -36,6 +42,10 @@ export type {
   productsCreationAttributes,
   purchase_order_detailsAttributes,
   purchase_order_detailsCreationAttributes,
+  purchase_order_paymentsAttributes,
+  purchase_order_paymentsCreationAttributes,
+  purchase_order_payment_detailsAttributes,
+  purchase_order_payment_detailsCreationAttributes,
   purchase_ordersAttributes,
   purchase_ordersCreationAttributes,
   stock_movementsAttributes,
@@ -52,6 +62,8 @@ export function initModels(sequelize: Sequelize) {
   const product_categories = _product_categories.initModel(sequelize);
   const products = _products.initModel(sequelize);
   const purchase_order_details = _purchase_order_details.initModel(sequelize);
+  const purchase_order_payments = _purchase_order_payments.initModel(sequelize);
+  const purchase_order_payment_details = _purchase_order_payment_details.initModel(sequelize);
   const purchase_orders = _purchase_orders.initModel(sequelize);
   const stock_movements = _stock_movements.initModel(sequelize);
   const suppliers = _suppliers.initModel(sequelize);
@@ -71,6 +83,14 @@ export function initModels(sequelize: Sequelize) {
   products.hasMany(warehouse_stock, { as: "warehouse_stocks", foreignKey: "product_id" });
   purchase_order_details.belongsTo(purchase_orders, { as: "purchase_order", foreignKey: "purchase_order_id" });
   purchase_orders.hasMany(purchase_order_details, { as: "purchase_order_details", foreignKey: "purchase_order_id" });
+
+  purchase_order_payment_details.belongsTo(purchase_order_payments, { as: "payment", foreignKey: "payment_id" });
+  purchase_order_payments.hasMany(purchase_order_payment_details, { as: "purchase_order_payment_details", foreignKey: "payment_id" });
+  purchase_order_payments.belongsTo(purchase_orders, { as: "purchase_order", foreignKey: "purchase_order_id" });
+  purchase_orders.hasMany(purchase_order_payments, { as: "purchase_order_payments", foreignKey: "purchase_order_id" });
+  purchase_order_payments.belongsTo(users, { as: "created_by_user", foreignKey: "created_by" });
+  users.hasMany(purchase_order_payments, { as: "purchase_order_payments", foreignKey: "created_by" });
+
   purchase_orders.belongsTo(suppliers, { as: "supplier", foreignKey: "supplier_id" });
   suppliers.hasMany(purchase_orders, { as: "purchase_orders", foreignKey: "supplier_id" });
   purchase_orders.belongsTo(users, { as: "approved_by_user", foreignKey: "approved_by" });
@@ -92,6 +112,8 @@ export function initModels(sequelize: Sequelize) {
     product_categories: product_categories,
     products: products,
     purchase_order_details: purchase_order_details,
+    purchase_order_payments: purchase_order_payments,
+    purchase_order_payment_details: purchase_order_payment_details,
     purchase_orders: purchase_orders,
     stock_movements: stock_movements,
     suppliers: suppliers,
