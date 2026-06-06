@@ -23,10 +23,25 @@ import { CaseFileController } from '../controllers/medical-controllers/case-file
 import { CaseFileService } from '../services/medical-services/case-file-service';
 import { CaseFileRepository } from '../repositories/medical-repositories/case-file-repository';
 import { PackageController } from '../controllers/medical-controllers/package-controller';
+import { ScheduledOperationController } from '../controllers/medical-controllers/scheduled-operation-controller';
+import { ScheduledOperationService } from '../services/medical-services/scheduled-operation.service';
+import { ScheduledOperationRepository } from '../repositories/medical-repositories/scheduled-operation.repository';
+import {
+    createScheduledOperationValidator,
+    updateScheduledOperationValidator,
+    updateScheduledOperationStatusValidator,
+    addTeamMemberValidator,
+    scheduledOperationListValidator,
+    scheduledOperationIdValidator,
+    teamMemberIdValidator
+} from '../validators/medical-validators/scheduled-operation.validator';
 
 const router = Router();
 
 const caseFileController = new CaseFileController(new CaseFileService(new CaseFileRepository()));
+const scheduledOperationController = new ScheduledOperationController(
+    new ScheduledOperationService(new ScheduledOperationRepository())
+);
 
 // All medical routes require authentication
 router.use(authMiddleware);
@@ -83,5 +98,17 @@ router.post('/case-files', caseFileController.createCaseFile);
 router.put('/case-files/:id', caseFileController.updateCaseFile);
 router.patch('/case-files/:id/status', caseFileController.updateCaseStatus);
 router.delete('/case-files/:id', caseFileController.deleteCaseFile);
+
+// Scheduled Operations routes
+router.get('/scheduled-operations', scheduledOperationListValidator, scheduledOperationController.getAllOperations);
+router.get('/scheduled-operations/case-file/:caseFileId', scheduledOperationController.getOperationsByCaseFile);
+router.get('/scheduled-operations/:id', scheduledOperationIdValidator, scheduledOperationController.getOperationById);
+router.post('/scheduled-operations', createScheduledOperationValidator, scheduledOperationController.createOperation);
+router.put('/scheduled-operations/:id', scheduledOperationIdValidator, updateScheduledOperationValidator, scheduledOperationController.updateOperation);
+router.patch('/scheduled-operations/:id/status', scheduledOperationIdValidator, updateScheduledOperationStatusValidator, scheduledOperationController.updateOperationStatus);
+router.delete('/scheduled-operations/:id', scheduledOperationIdValidator, scheduledOperationController.deleteOperation);
+router.get('/scheduled-operations/:id/team', scheduledOperationIdValidator, scheduledOperationController.getTeamMembers);
+router.post('/scheduled-operations/:id/team', scheduledOperationIdValidator, addTeamMemberValidator, scheduledOperationController.addTeamMember);
+router.delete('/scheduled-operations/:id/team/:memberId', scheduledOperationIdValidator, teamMemberIdValidator, scheduledOperationController.removeTeamMember);
 
 export { router as medicalRoutes };
