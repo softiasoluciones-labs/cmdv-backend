@@ -1,7 +1,7 @@
 import { UserRepository } from '../../repositories/core-repositories/user.repository';
 import { hashPassword, comparePassword } from '../../../../utils/password.utils';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../../../utils/jwt.utils';
-import { UserResponse, LoginResponse, RefreshTokenResponse, ForgotPasswordResponse, UserCreateByAdminRequest } from '../../dtos/core-dtos/auth.dtos';
+import { UserResponse, LoginResponse, RefreshTokenResponse, ForgotPasswordResponse, UserCreateByAdminRequest, Permission } from '../../dtos/core-dtos/auth.dtos';
 import { users, usersCreationAttributes } from '../../../../database/core/users';
 
 /**
@@ -11,15 +11,21 @@ export class AuthService {
     /**
      * Convert User model to UserResponse (without password)
      */
-    private static toUserResponse(user: users): UserResponse {
-        return {
+    private static toUserResponse(user: users, permissions?: Permission[]): UserResponse {
+        const response: UserResponse = {
             id: user.id,
             email: user.email,
-            name: user.full_name, // Map full_name to name
+            name: user.full_name,
             role: user.role,
             createdAt: user.created_at || new Date(),
             updatedAt: user.updated_at || new Date()
         };
+
+        if (permissions && permissions.length > 0) {
+            response.permissions = permissions;
+        }
+
+        return response;
     }
 
     /**
@@ -60,10 +66,12 @@ export class AuthService {
         await UserRepository.storeRefreshToken(user.id, refreshToken, refreshExpiresAt);
         await UserRepository.updateLastLogin(user.id);
 
+        const permissions = await UserRepository.getPermissionsByRole(user.role);
+
         return {
             accessToken,
             refreshToken,
-            user: this.toUserResponse(user)
+            user: this.toUserResponse(user, permissions)
         };
     }
 

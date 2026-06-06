@@ -8,6 +8,11 @@ export interface LoginRequest {
     password: string;
 }
 
+export interface Permission {
+    resource: string;
+    actions: string[];
+}
+
 export interface LoginResponse {
     accessToken: string;
     refreshToken: string;
@@ -51,6 +56,7 @@ export interface UserResponse {
     email: string;
     name: string;
     role: string;
+    permissions?: Permission[];
     createdAt: Date;
     updatedAt: Date;
 }

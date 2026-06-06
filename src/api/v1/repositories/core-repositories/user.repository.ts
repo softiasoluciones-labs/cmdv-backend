@@ -1,8 +1,8 @@
-import { models } from '../../../../database';
+import { models, sequelize } from '../../../../database';
 import { users, usersCreationAttributes } from '../../../../database/core/users';
 import { secureLogger } from '../../../../utils/secure-logger.utils';
 import { hashPassword, comparePassword } from '../../../../utils/password.utils';
-import { Op } from 'sequelize';
+import { Op, QueryTypes } from 'sequelize';
 import { hashToken } from '../../../../utils/sanitization.utils';
 
 interface ResetTokenData {
@@ -380,6 +380,48 @@ export class UserRepository {
             return users;
         } catch (error) {
             console.error('Error getting list of users with roles and permissions:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get permissions grouped by resource for a given role
+     */
+    static async getPermissionsByRole(role: string): Promise<Array<{ resource: string; actions: string[] }>> {
+        try {
+            const query = `
+                SELECT p.resource, p.name
+                FROM core.role_permissions rp
+                JOIN core.permissions p ON rp.permission_id = p.id
+                WHERE rp.role = :role
+            `;
+
+            const results = await sequelize.query(query, {
+                replacements: { role },
+                type: QueryTypes.SELECT
+            }) as Array<{ resource: string; name: string }>;
+
+            const permissionsMap = new Map<string, string[]>();
+
+            for (const row of results) {
+                const { resource, name } = row;
+                if (resource && name) {
+                    if (!permissionsMap.has(resource)) {
+                        permissionsMap.set(resource, []);
+                    }
+                    const actions = permissionsMap.get(resource)!;
+                    if (!actions.includes(name)) {
+                        actions.push(name);
+                    }
+                }
+            }
+
+            return Array.from(permissionsMap.entries()).map(([resource, actions]) => ({
+                resource,
+                actions
+            }));
+        } catch (error) {
+            secureLogger.error('Error getting permissions by role:', error);
             return [];
         }
     }
