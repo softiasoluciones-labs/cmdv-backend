@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AdmissionTypeService } from '../../services/medical-services/admission-type-service';
 import { AdmissionCategory } from '../../dtos/medical-dtos/admission-type.dto';
+import { successResponse, errorResponse } from '../../../../utils/response.utils';
 
 /**
  * Controller for admission types REST API
@@ -31,19 +32,9 @@ export class AdmissionTypeController {
 
             const admissionTypes = await AdmissionTypeService.getAllAdmissionTypes(filters);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Admission types retrieved successfully',
-                data: admissionTypes
-            });
+            successResponse(res, 200, 'Admission types retrieved successfully', admissionTypes);
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -61,19 +52,9 @@ export class AdmissionTypeController {
 
             const admissionTypes = await AdmissionTypeService.getAllAdmissionTypes(filters);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Admission types retrieved successfully',
-                data: admissionTypes
-            });
+            successResponse(res, 200, 'Admission types retrieved successfully', admissionTypes);
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -85,19 +66,9 @@ export class AdmissionTypeController {
         try {
             const grouped = await AdmissionTypeService.getAdmissionTypesGroupedByCategory();
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Admission types grouped by category retrieved successfully',
-                data: grouped
-            });
+            successResponse(res, 200, 'Admission types grouped by category retrieved successfully', grouped);
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -113,20 +84,10 @@ export class AdmissionTypeController {
             }
             const admissionType = await AdmissionTypeService.getAdmissionTypeById(id);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Admission type retrieved successfully',
-                data: admissionType
-            });
+            successResponse(res, 200, 'Admission type retrieved successfully', admissionType);
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, statusCode, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -143,20 +104,10 @@ export class AdmissionTypeController {
 
             const admissionType = await AdmissionTypeService.getAdmissionTypeByCode(code);
 
-            res.json({
-                success: true,
-                code: 200,
-                message: 'Admission type retrieved successfully',
-                data: admissionType
-            });
+            successResponse(res, 200, 'Admission type retrieved successfully', admissionType);
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, statusCode, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -173,20 +124,10 @@ export class AdmissionTypeController {
 
             const rules = await AdmissionTypeService.getAdmissionTypeRules(id);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Admission type rules retrieved successfully',
-                data: rules
-            });
+            successResponse(res, 200, 'Admission type rules retrieved successfully', rules);
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, statusCode, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -198,21 +139,11 @@ export class AdmissionTypeController {
         try {
             const admissionType = await AdmissionTypeService.createAdmissionType(req.body);
 
-            res.status(201).json({
-                success: true,
-                code: 201,
-                message: 'Admission type created successfully',
-                data: admissionType
-            });
+            successResponse(res, 201, 'Admission type created successfully', admissionType);
 
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('already exists') ? 409 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, statusCode, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -224,28 +155,15 @@ export class AdmissionTypeController {
         try {
 
             if (!req.params.id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'No ID provided'
-                });
+                return errorResponse(res, 400, 'No ID provided');
             }
 
             const admissionType = await AdmissionTypeService.updateAdmissionType(req.params.id, req.body);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Admission type updated successfully',
-                data: admissionType
-            });
+            successResponse(res, 200, 'Admission type updated successfully', admissionType);
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, statusCode, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -262,20 +180,10 @@ export class AdmissionTypeController {
 
             await AdmissionTypeService.deleteAdmissionType(id);
 
-            res.json({
-                success: true,
-                code: 200,
-                message: 'Admission type deleted successfully',
-                data: null
-            });
+            successResponse(res, 200, 'Admission type deleted successfully', null);
         } catch (error) {
             const statusCode = error instanceof Error && error.message.includes('not found') ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error instanceof Error ? error.message : 'Internal server error'
-                , data: null
-            });
+            errorResponse(res, statusCode, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 }

@@ -1,21 +1,26 @@
-/**
- * Standard success response format
- */
-export const successResponse = <T>(data: T, message: string = 'Success') => {
-    return {
+import { Response } from 'express';
+
+export const successResponse = <T>(res: Response, code: number, message: string, data?: T): Response => {
+    return res.status(code).json({
         success: true,
+        code,
         message,
-        data
-    };
+        data,
+        version: '1.0.0',
+        timestamp: new Date().toISOString()
+    });
 };
 
-/**
- * Standard error response format
- */
-export const errorResponse = (message: string, errors?: any) => {
-    return {
+export const errorResponse = (res: Response, code: number, message: string, errors?: unknown): Response => {
+    const response: Record<string, unknown> = {
         success: false,
+        code,
         message,
-        ...(errors && { errors })
+        version: '1.0.0',
+        timestamp: new Date().toISOString()
     };
+    if (errors) {
+        response.errors = errors;
+    }
+    return res.status(code).json(response);
 };

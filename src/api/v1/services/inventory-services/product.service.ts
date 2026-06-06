@@ -64,11 +64,6 @@ export class ProductService {
      */
     static async getProductById(id: string): Promise<ProductResponse> {
         const product = await ProductRepository.findById(id);
-
-        if (!product) {
-            throw new Error('Product not found');
-        }
-
         return this.toProductResponse(product);
     }
 
@@ -76,17 +71,20 @@ export class ProductService {
      * Create new product
      */
     static async createProduct(data: CreateProductRequest): Promise<ProductResponse> {
-        // Check if code already exists
-        const existing = await ProductRepository.findByCode(data.code);
-        if (existing) {
+        try {
+            await ProductRepository.findByCode(data.code);
             throw new Error('Product code already exists');
+        } catch (error: any) {
+            if (error.message !== 'Product not found') {
+                throw error;
+            }
         }
 
         const productData = {
-            code: data.code, // Obligatorio
-            name: data.name, // Obligatorio
-            category_id: data.categoryId, // Obligatorio
-            unit_of_measure: data.unitOfMeasure, // Obligatorio
+            code: data.code,
+            name: data.name,
+            category_id: data.categoryId,
+            unit_of_measure: data.unitOfMeasure,
 
             ...(data.barcode && { barcode: data.barcode }),
             ...(data.description && { description: data.description }),
@@ -110,19 +108,19 @@ export class ProductService {
      */
     static async updateProduct(id: string, data: UpdateProductRequest): Promise<ProductResponse> {
         const product = await ProductRepository.findById(id);
-        if (!product) {
-            throw new Error('Product not found');
-        }
 
-        // Check if new code already exists
         if (data.code && data.code !== product.code) {
-            const existing = await ProductRepository.findByCode(data.code);
-            if (existing) {
+            try {
+                await ProductRepository.findByCode(data.code);
                 throw new Error('Product code already exists');
+            } catch (error: any) {
+                if (error.message !== 'Product not found') {
+                    throw error;
+                }
             }
         }
 
-        const updateData: any = {};
+        const updateData: Record<string, unknown> = {};
         if (data.code !== undefined) updateData.code = data.code;
         if (data.barcode !== undefined) updateData.barcode = data.barcode;
         if (data.name !== undefined) updateData.name = data.name;
@@ -142,17 +140,14 @@ export class ProductService {
         await ProductRepository.update(id, updateData);
 
         const updatedProduct = await ProductRepository.findById(id);
-        return this.toProductResponse(updatedProduct!);
+        return this.toProductResponse(updatedProduct);
     }
 
     /**
      * Delete product (soft delete)
      */
     static async deleteProduct(id: string): Promise<void> {
-        const product = await ProductRepository.findById(id);
-        if (!product) {
-            throw new Error('Product not found');
-        }
+        await ProductRepository.findById(id);
 
         const deleted = await ProductRepository.delete(id);
         if (!deleted) {

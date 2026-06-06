@@ -73,7 +73,7 @@ export class StockMovementRepository {
     /**
      * Find stock movement by ID
      */
-    static async findById(id: string): Promise<stock_movements | null> {
+    static async findById(id: string): Promise<stock_movements> {
         try {
             const movement = await models.stock_movements.findByPk(id, {
                 include: [
@@ -94,10 +94,13 @@ export class StockMovementRepository {
                     }
                 ]
             });
+            if (!movement) {
+                throw new Error('Stock movement not found');
+            }
             return movement;
         } catch (error) {
             secureLogger.error('Error finding stock movement by ID:', error);
-            return null;
+            throw new Error('Error finding stock movement by ID');
         }
     }
 

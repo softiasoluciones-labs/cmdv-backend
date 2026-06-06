@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PatientService } from '../../services/medical-services/patient-service';
+import { successResponse, errorResponse } from '../../../../utils/response.utils';
 
 export class PatientController {
     static async getAll(req: Request, res: Response): Promise<void> {
@@ -16,19 +17,9 @@ export class PatientController {
             };
 
             const result = await PatientService.getAllPatients(filters, page, limit);
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Patients retrieved successfully',
-                data: result
-            });
+            successResponse(res, 200, 'Patients retrieved successfully', result);
         } catch (error: any) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error.message,
-                data: null
-            });
+            errorResponse(res, 500, error.message);
         }
     }
 
@@ -39,20 +30,10 @@ export class PatientController {
             }
 
             const patient = await PatientService.getPatientById(req.params.id);
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Patient retrieved successfully',
-                data: patient
-            });
+            successResponse(res, 200, 'Patient retrieved successfully', patient);
         } catch (error: any) {
             const status = error.message === 'Patient not found' ? 404 : 500;
-            res.status(status).json({
-                success: false,
-                code: status,
-                message: error.message,
-                data: null
-            });
+            errorResponse(res, status, error.message);
         }
     }
 
@@ -63,20 +44,10 @@ export class PatientController {
             }
 
             const patient = await PatientService.getPatientByFileNumber(req.params.fileNumber);
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Patient retrieved successfully',
-                data: patient
-            });
+            successResponse(res, 200, 'Patient retrieved successfully', patient);
         } catch (error: any) {
             const status = error.message === 'Patient not found' ? 404 : 500;
-            res.status(status).json({
-                success: false,
-                code: status,
-                message: error.message,
-                data: null
-            });
+            errorResponse(res, status, error.message);
         }
     }
 
@@ -84,20 +55,10 @@ export class PatientController {
         try {
             const userId = (req as any).user?.userId;
             const patient = await PatientService.createPatient(req.body, userId);
-            res.status(201).json({
-                success: true,
-                code: 201,
-                message: 'Patient created successfully',
-                data: patient
-            });
+            successResponse(res, 201, 'Patient created successfully', patient);
         } catch (error: any) {
             const status = error.message.includes('already exists') ? 409 : 500;
-            res.status(status).json({
-                success: false,
-                code: status,
-                message: error.message,
-                data: null
-            });
+            errorResponse(res, status, error.message);
         }
     }
 
@@ -108,21 +69,11 @@ export class PatientController {
             }
 
             const patient = await PatientService.updatePatient(req.params.id, req.body);
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Patient updated successfully',
-                data: patient
-            });
+            successResponse(res, 200, 'Patient updated successfully', patient);
         } catch (error: any) {
             const status = error.message === 'Patient not found' ? 404 :
                 error.message.includes('already exists') ? 409 : 500;
-            res.status(status).json({
-                success: false,
-                code: status,
-                message: error.message,
-                data: null
-            });
+            errorResponse(res, status, error.message);
         }
     }
 
@@ -133,20 +84,10 @@ export class PatientController {
             }
 
             await PatientService.deletePatient(req.params.id);
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Patient deleted successfully',
-                data: null
-            });
+            successResponse(res, 200, 'Patient deleted successfully', null);
         } catch (error: any) {
             const status = error.message === 'Patient not found' ? 404 : 500;
-            res.status(status).json({
-                success: false,
-                code: status,
-                message: error.message,
-                data: null
-            });
+            errorResponse(res, status, error.message);
         }
     }
 }

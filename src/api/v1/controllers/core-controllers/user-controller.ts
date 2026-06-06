@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { UserService } from '../../services/core-services/user-service';
 import { UserFiltersDto, UsersRequestDto } from '../../dtos/core-dtos/user-dto';
+import { successResponse, errorResponse } from '../../../../utils/response.utils';
 
 export class UserController {
     /**
@@ -37,20 +38,10 @@ export class UserController {
             // Usar el método optimizado
             const result = await UserService.getUsersWithStatsOptimized(options);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Users retrieved successfully',
-                data: result
-            });
+            successResponse(res, 200, 'Users retrieved successfully', result);
 
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -61,64 +52,37 @@ export class UserController {
         try {
             const users = await UserService.getAllUsersWithRolesAndPermissions();
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Users with roles and permissions retrieved successfully',
-                data: {
+            successResponse(res, 200, 'Users with roles and permissions retrieved successfully', {
                     total: users.length,
                     users
-                }
-            });
+                });
 
         } catch (error) {
-
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
     /**
-     * Get all users by warehouse role 
+     * Get all users by warehouse role
      */
     static async getUsersByRole(req: Request, res: Response): Promise<void> {
         try {
             const role = req.query.role as string;
 
             if (!role) {
-                res.status(400).json({
-                    success: false,
-                    code: 400,
-                    message: 'Role query parameter is required',
-                    data: null
-                });
+                errorResponse(res, 400, 'Role query parameter is required');
                 return;
             }
 
             const users = await UserService.getUsersByRole(role);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: `Users with role ${role} retrieved successfully`,
-                data: {
-                    total: users.length,
-                    users
-                }
+            successResponse(res, 200, `Users with role ${role} retrieved successfully`, {
+                total: users.length,
+                users
             });
 
         } catch (error) {
-
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -126,19 +90,9 @@ export class UserController {
         try {
             const user = await UserService.createNewUser(req.body);
 
-            res.status(201).json({
-                success: true,
-                code: 201,
-                message: 'User created successfully',
-                data: user
-            });
+            successResponse(res, 201, 'User created successfully', user);
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 
@@ -147,19 +101,9 @@ export class UserController {
             const id = req.params.id as string;
             const user = await UserService.updateUser(id, req.body);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'User updated successfully',
-                data: user
-            });
+            successResponse(res, 200, 'User updated successfully', user);
         } catch (error) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error instanceof Error ? error.message : 'Internal server error',
-                data: null
-            });
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
 }

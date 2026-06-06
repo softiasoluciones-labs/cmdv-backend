@@ -1,20 +1,14 @@
 import { Request, Response } from 'express';
 import { WarehouseService } from '../../services/inventory-services/warehouse-service';
+import { successResponse, errorResponse } from '../../../../utils/response.utils';
 
 export class WarehouseController {
     static async getAll(req: Request, res: Response): Promise<void> {
         try {
             const warehouses = await WarehouseService.getAllWarehouses();
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Warehouses retrieved successfully',
-                data: warehouses,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            successResponse(res, 200, 'Warehouses retrieved successfully', warehouses);
         } catch (error: any) {
-            res.status(500).json({ success: false, code: 500, message: error.message, data: null });
+            errorResponse(res, 500, error.message);
         }
     }
 
@@ -24,20 +18,20 @@ export class WarehouseController {
                 throw new Error('Supplier ID is required');
             }
             const warehouse = await WarehouseService.getWarehouseById(req.params.id);
-            res.status(200).json({ success: true, code: 200, message: 'Warehouse retrieved successfully', data: warehouse });
+            successResponse(res, 200, 'Warehouse retrieved successfully', warehouse);
         } catch (error: any) {
             const status = error.message === 'Warehouse not found' ? 404 : 500;
-            res.status(status).json({ success: false, code: status, message: error.message, data: null });
+            errorResponse(res, status, error.message);
         }
     }
 
     static async create(req: Request, res: Response): Promise<void> {
         try {
             const warehouse = await WarehouseService.createWarehouse(req.body);
-            res.status(201).json({ success: true, code: 201, message: 'Warehouse created successfully', data: warehouse });
+            successResponse(res, 201, 'Warehouse created successfully', warehouse);
         } catch (error: any) {
             const status = error.message.includes('exists') ? 409 : 500;
-            res.status(status).json({ success: false, code: status, message: error.message, data: null });
+            errorResponse(res, status, error.message);
         }
     }
 
@@ -47,10 +41,10 @@ export class WarehouseController {
                 throw new Error('Supplier ID is required');
             }
             const warehouse = await WarehouseService.updateWarehouse(req.params.id, req.body);
-            res.status(200).json({ success: true, code: 200, message: 'Warehouse updated successfully', data: warehouse });
+            successResponse(res, 200, 'Warehouse updated successfully', warehouse);
         } catch (error: any) {
             const status = error.message === 'Warehouse not found' ? 404 : 500;
-            res.status(status).json({ success: false, code: status, message: error.message, data: null });
+            errorResponse(res, status, error.message);
         }
     }
 
@@ -60,10 +54,10 @@ export class WarehouseController {
                 throw new Error('Supplier ID is required');
             }
             await WarehouseService.deleteWarehouse(req.params.id);
-            res.status(200).json({ success: true, code: 200, message: 'Warehouse deleted successfully', data: null });
+            successResponse(res, 200, 'Warehouse deleted successfully', null);
         } catch (error: any) {
             const status = error.message === 'Warehouse not found' ? 404 : 500;
-            res.status(status).json({ success: false, code: status, message: error.message, data: null });
+            errorResponse(res, status, error.message);
         }
     }
 
@@ -71,9 +65,9 @@ export class WarehouseController {
         try {
             const warehouseId = req.params.id;
             const stockStatus = await WarehouseService.getStockStatus(warehouseId);
-            res.status(200).json({ success: true, code: 200, message: 'Stock status retrieved successfully', data: stockStatus });
+            successResponse(res, 200, 'Stock status retrieved successfully', stockStatus);
         } catch (error: any) {
-            res.status(500).json({ success: false, code: 500, message: error.message, data: null });
+            errorResponse(res, 500, error.message);
         }
     }
 }

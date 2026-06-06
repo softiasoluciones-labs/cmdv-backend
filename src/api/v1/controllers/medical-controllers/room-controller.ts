@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { RoomService } from '../../services/medical-services/room-service';
+import { successResponse, errorResponse } from '../../../../utils/response.utils';
 
 export class RoomController {
     static async getAll(req: Request, res: Response): Promise<void> {
@@ -14,20 +15,10 @@ export class RoomController {
             };
 
             const result = await RoomService.findAll(filters, page, limit);
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Rooms retrieved successfully',
-                data: result
-            });
+            successResponse(res, 200, 'Rooms retrieved successfully', result);
         }
         catch (error: any) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error.message,
-                data: null
-            });
+            errorResponse(res, 500, error.message);
         }
     }
 
@@ -38,21 +29,11 @@ export class RoomController {
             }
 
             const room = await RoomService.findById(req.params.id);
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Room retrieved successfully',
-                data: room
-            });
+            successResponse(res, 200, 'Room retrieved successfully', room);
         }
         catch (error: any) {
             const status = error.message === 'Room not found' ? 404 : 500;
-            res.status(status).json({
-                success: false,
-                code: status,
-                message: error.message,
-                data: null
-            });
+            errorResponse(res, status, error.message);
         }
     }
 }

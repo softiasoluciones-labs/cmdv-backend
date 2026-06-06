@@ -14,22 +14,20 @@ export class AuthController {
     static async login(req: Request, res: Response): Promise<void> {
 
         try {
-            // Validate request
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                res.status(400).json(errorResponse('Validation failed', errors.array()));
+                errorResponse(res, 400, 'Validation failed', errors.array());
                 return;
             }
 
             const { email, password } = req.body;
 
-            // Call service
             const result = await AuthService.login(email, password);
 
-            res.status(200).json(successResponse(result, 'Login successful'));
+            successResponse(res, 200, 'Login successful', result);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Login failed';
-            res.status(401).json(errorResponse(message));
+            errorResponse(res, 401, message);
         }
     }
 
@@ -39,22 +37,20 @@ export class AuthController {
      */
     static refreshToken(req: Request, res: Response): void {
         try {
-            // Validate request
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                res.status(400).json(errorResponse('Validation failed', errors.array()));
+                errorResponse(res, 400, 'Validation failed', errors.array());
                 return;
             }
 
             const { refreshToken } = req.body;
 
-            // Call service
             const result = AuthService.refreshToken(refreshToken);
 
-            res.status(200).json(successResponse(result, 'Token refreshed successfully'));
+            successResponse(res, 200, 'Token refreshed successfully', result);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Token refresh failed';
-            res.status(401).json(errorResponse(message));
+            errorResponse(res, 401, message);
         }
     }
 
@@ -64,22 +60,20 @@ export class AuthController {
      */
     static forgotPassword(req: Request, res: Response): void {
         try {
-            // Validate request
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                res.status(400).json(errorResponse('Validation failed', errors.array()));
+                errorResponse(res, 400, 'Validation failed', errors.array());
                 return;
             }
 
             const { email } = req.body;
 
-            // Call service
             const result = AuthService.forgotPassword(email);
 
-            res.status(200).json(successResponse(result, 'Password reset initiated'));
+            successResponse(res, 200, 'Password reset initiated', result);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Request failed';
-            res.status(500).json(errorResponse(message));
+            errorResponse(res, 500, message);
         }
     }
 
@@ -89,22 +83,20 @@ export class AuthController {
      */
     static async resetPassword(req: Request, res: Response): Promise<void> {
         try {
-            // Validate request
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                res.status(400).json(errorResponse('Validation failed', errors.array()));
+                errorResponse(res, 400, 'Validation failed', errors.array());
                 return;
             }
 
             const { token, newPassword } = req.body;
 
-            // Call service
             await AuthService.resetPassword(token, newPassword);
 
-            res.status(200).json(successResponse(null, 'Password reset successful'));
+            successResponse(res, 200, 'Password reset successful', null);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Password reset failed';
-            res.status(400).json(errorResponse(message));
+            errorResponse(res, 400, message);
         }
     }
 
@@ -114,10 +106,9 @@ export class AuthController {
      */
     static async changePassword(req: Request, res: Response): Promise<void> {
         try {
-            // Validate request
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                res.status(400).json(errorResponse('Validation failed', errors.array()));
+                errorResponse(res, 400, 'Validation failed', errors.array());
                 return;
             }
 
@@ -125,17 +116,16 @@ export class AuthController {
             const userId = req.user?.userId;
 
             if (!userId) {
-                res.status(401).json(errorResponse('Unauthorized'));
+                errorResponse(res, 401, 'Unauthorized');
                 return;
             }
 
-            // Call service
             await AuthService.changePassword(userId, currentPassword, newPassword);
 
-            res.status(200).json(successResponse(null, 'Password changed successfully'));
+            successResponse(res, 200, 'Password changed successfully', null);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Password change failed';
-            res.status(400).json(errorResponse(message));
+            errorResponse(res, 400, message);
         }
     }
 
@@ -148,17 +138,16 @@ export class AuthController {
             const userId = req.user?.userId;
 
             if (!userId) {
-                res.status(401).json(errorResponse('Unauthorized'));
+                errorResponse(res, 401, 'Unauthorized');
                 return;
             }
 
-            // Call service
             const user = AuthService.getCurrentUser(userId);
 
-            res.status(200).json(successResponse(user, 'User retrieved successfully'));
+            successResponse(res, 200, 'User retrieved successfully', user);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Request failed';
-            res.status(404).json(errorResponse(message));
+            errorResponse(res, 404, message);
         }
     }
 
@@ -168,22 +157,20 @@ export class AuthController {
      */
     static async createUserByAdmin(req: Request, res: Response): Promise<void> {
         try {
-            // Validate request
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
-                res.status(400).json(errorResponse('Validation failed', errors.array()));
+                errorResponse(res, 400, 'Validation failed', errors.array());
                 return;
             }
 
             const { email, password, name, role } = req.body;
 
-            // Call service
             const result = await AuthService.createUserByAdmin({ email, password, name, role });
 
-            res.status(200).json(successResponse(result, 'User created successfully'));
+            successResponse(res, 200, 'User created successfully', result);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'User creation failed';
-            res.status(400).json(errorResponse(message));
+            errorResponse(res, 400, message);
         }
     }
 }

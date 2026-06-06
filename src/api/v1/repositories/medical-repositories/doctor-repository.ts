@@ -70,7 +70,7 @@ export class DoctorRepository {
     /**
      * Find doctor by ID
      */
-    static async findById(id: string): Promise<doctors | null> {
+    static async findById(id: string): Promise<doctors> {
         try {
             const doctor = await models.doctors.findByPk(id, {
                 include: [
@@ -88,73 +88,82 @@ export class DoctorRepository {
                     }
                 ]
             });
+            if (!doctor) {
+                throw new Error('Doctor not found');
+            }
             return doctor;
         } catch (error) {
             secureLogger.error('Error finding doctor by ID: ' + error);
-            return null;
+            throw new Error('Error finding doctor by ID');
         }
     }
 
     /**
      * Find doctor by medical license
      */
-    static async findByMedicalLicense(medicalLicense: string): Promise<doctors | null> {
+    static async findByMedicalLicense(medicalLicense: string): Promise<doctors> {
         try {
             const doctor = await models.doctors.findOne({
                 where: { medical_license: medicalLicense }
             });
+            if (!doctor) {
+                throw new Error('Doctor not found');
+            }
             return doctor;
         } catch (error) {
             secureLogger.error('Error finding doctor by medical license: ' + error);
-            return null;
+            throw new Error('Error finding doctor by medical license');
         }
     }
 
     /**
      * Find doctor by identification number
      */
-    static async findByIdentification(identificationNumber: string): Promise<doctors | null> {
+    static async findByIdentification(identificationNumber: string): Promise<doctors> {
         try {
             const doctor = await models.doctors.findOne({
                 where: { identification_number: identificationNumber }
             });
+            if (!doctor) {
+                throw new Error('Doctor not found');
+            }
             return doctor;
         } catch (error) {
             secureLogger.error('Error finding doctor by identification: ' + error);
-            return null;
+            throw new Error('Error finding doctor by identification');
         }
     }
 
     /**
      * Create a new doctor
      */
-    static async create(data: any): Promise<doctors | null> {
+    static async create(data: Record<string, unknown>): Promise<doctors> {
         try {
-            const doctor = await models.doctors.create(data);
+            const doctor = await models.doctors.create(data as any);
             return doctor;
         } catch (error) {
             secureLogger.error('Error creating doctor: ' + error);
-            return null;
+            throw new Error('Failed to create doctor');
         }
     }
 
     /**
      * Update a doctor by ID
      */
-    static async update(id: string, data: any): Promise<doctors | null> {
+    static async update(id: string, data: Record<string, unknown>): Promise<doctors> {
         try {
             const [affectedCount] = await models.doctors.update(data, {
                 where: { id }
             });
 
             if (affectedCount === 0) {
-                return null;
+                throw new Error('Doctor not found');
             }
 
             return await this.findById(id);
         } catch (error) {
             secureLogger.error('Error updating doctor: ' + error);
-            return null;
+            throw new Error('Error updating doctor');
         }
     }
 

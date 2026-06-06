@@ -120,10 +120,12 @@ export class RoleRepository {
     /**
      * Buscar un rol por su key
      */
-    static async findByName(roleName: string): Promise<RoleDTO | null> {
+    static async findByName(roleName: string): Promise<RoleDTO> {
         try {
             const roleRow = await models.v_roles.findOne({ where: { rol: roleName } });
-            if (!roleRow) return null;
+            if (!roleRow) {
+                throw new Error('Role not found');
+            }
 
             const usersCount = await models.users.count({
                 where: {
@@ -165,7 +167,7 @@ export class RoleRepository {
 
         } catch (error) {
             secureLogger.error(`Error finding role ${roleName}:`, error);
-            return null;
+            throw new Error(`Error finding role ${roleName}`);
         }
     }
 }

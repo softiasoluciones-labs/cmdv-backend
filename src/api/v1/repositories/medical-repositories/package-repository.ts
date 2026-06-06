@@ -64,52 +64,60 @@ export class PackageRepository {
     }
   }
 
-  static async getPackageById(packageId: string): Promise<packages | null> {
-    return models.packages.findOne({
-      where: {
-        id: packageId,
-      },
-    });
-  }
-
-  static async getPackageDetails(packageId: string): Promise<packages | null> {
-    return models.packages.findOne({
-      where: {
-        id: packageId,
-      },
-      include: [
-        {
-          model: models.users,
-          as: "created_by_user",
-          attributes: ["username"],
-        },
-        {
-          model: models.users,
-          as: "updated_by_user",
-          attributes: ["username"],
-        },
-        {
-          model: models.package_details,
-          as: "package_details",
-          attributes: [
-            "id",
-            "package_id",
-            "product_id",
-            "quantity",
-            "notes",
-            "created_at",
-          ],
-          include: [
-            {
-              model: models.products,
-              as: "product",
-              attributes: ["id", "code", "name"],
+static async getPackageById(packageId: string): Promise<packages> {
+        const pkg = await models.packages.findOne({
+            where: {
+                id: packageId,
             },
-          ],
-        },
-      ],
-    });
-  }
+        });
+        if (!pkg) {
+            throw new Error('Package not found');
+        }
+        return pkg;
+    }
+
+    static async getPackageDetails(packageId: string): Promise<packages> {
+        const pkg = await models.packages.findOne({
+            where: {
+                id: packageId,
+            },
+            include: [
+                {
+                    model: models.users,
+                    as: "created_by_user",
+                    attributes: ["username"],
+                },
+                {
+                    model: models.users,
+                    as: "updated_by_user",
+                    attributes: ["username"],
+                },
+                {
+                    model: models.package_details,
+                    as: "package_details",
+                    attributes: [
+                        "id",
+                        "package_id",
+                        "product_id",
+                        "quantity",
+                        "notes",
+                        "created_at",
+                    ],
+                    include: [
+                        {
+                            model: models.products,
+                            as: "product",
+                            attributes: ["id", "code", "name"],
+                        },
+                    ],
+                },
+            ],
+        });
+        if (!pkg) {
+            throw new Error('Package not found');
+        }
+        return pkg;
+    }
 
   static async removeItemPackageDetail(
     idItem: string,
@@ -227,12 +235,12 @@ export class PackageRepository {
   static async deactivate(
     packageId: string,
     userId: string,
-  ): Promise<packages | null> {
+  ): Promise<packages> {
     const pkg = await models.packages.findOne({
       where: { id: packageId },
     });
     if (!pkg) {
-      return null;
+      throw new Error('Package not found');
     }
     await pkg.update({
       is_active: false,
@@ -292,34 +300,34 @@ export class PackageRepository {
     return { package: newPackage, details: newDetails };
   }
 
-  static async update(packageId: string, data: UpdatePackageDto, userId: string): Promise<packages | null> {
-    const pkg = await models.packages.findOne({
-      where: { id: packageId },
-    });
+static async update(packageId: string, data: UpdatePackageDto, userId: string): Promise<packages> {
+        const pkg = await models.packages.findOne({
+            where: { id: packageId },
+        });
 
-    if (!pkg) {
-      return null;
+        if (!pkg) {
+            throw new Error('Package not found');
+        }
+
+        const updateData: Record<string, unknown> = {
+            updated_at: new Date(),
+            updated_by: userId,
+        };
+
+        if (data.description !== undefined) {
+            updateData.description = data.description;
+        }
+
+        if (data.external_doctor_price !== undefined) {
+            updateData.external_doctor_price = data.external_doctor_price;
+        }
+
+        if (data.internal_doctor_price !== undefined) {
+            updateData.internal_doctor_price = data.internal_doctor_price;
+        }
+
+        await pkg.update(updateData);
+        await pkg.reload();
+        return pkg;
     }
-
-    const updateData: any = {
-      updated_at: new Date(),
-      updated_by: userId,
-    };
-
-    if (data.description !== undefined) {
-      updateData.description = data.description;
-    }
-
-    if (data.external_doctor_price !== undefined) {
-      updateData.external_doctor_price = data.external_doctor_price;
-    }
-
-    if (data.internal_doctor_price !== undefined) {
-      updateData.internal_doctor_price = data.internal_doctor_price;
-    }
-
-    await pkg.update(updateData);
-    await pkg.reload();
-    return pkg;
-  }
 }

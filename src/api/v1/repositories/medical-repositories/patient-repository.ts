@@ -88,47 +88,56 @@ export class PatientRepository {
     /**
      * Find patient by ID
      */
-    static async findById(id: string): Promise<patients | null> {
+    static async findById(id: string): Promise<patients> {
         try {
             const patient = await models.patients.findByPk(id, {
                 attributes: {
                     exclude: ['created_by']
                 }
             });
+            if (!patient) {
+                throw new Error('Patient not found');
+            }
             return patient;
         } catch (error) {
             secureLogger.error('Error finding patient by ID: ' + error);
-            return null;
+            throw new Error('Error finding patient by ID');
         }
     }
 
     /**
      * Find patient by file number
      */
-    static async findByFileNumber(fileNumber: string): Promise<patients | null> {
+    static async findByFileNumber(fileNumber: string): Promise<patients> {
         try {
             const patient = await models.patients.findOne({
                 where: { file_number: fileNumber }
             });
+            if (!patient) {
+                throw new Error('Patient not found');
+            }
             return patient;
         } catch (error) {
             secureLogger.error('Error finding patient by file number: ' + error);
-            return null;
+            throw new Error('Error finding patient by file number');
         }
     }
 
     /**
      * Find patient by identification number
      */
-    static async findByIdentification(identificationNumber: string): Promise<patients | null> {
+    static async findByIdentification(identificationNumber: string): Promise<patients> {
         try {
             const patient = await models.patients.findOne({
                 where: { identification_number: identificationNumber }
             });
+            if (!patient) {
+                throw new Error('Patient not found');
+            }
             return patient;
         } catch (error) {
             secureLogger.error('Error finding patient by identification: ' + error);
-            return null;
+            throw new Error('Error finding patient by identification');
         }
     }
 

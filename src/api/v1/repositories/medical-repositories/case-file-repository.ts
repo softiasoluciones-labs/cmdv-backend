@@ -58,8 +58,8 @@ export class CaseFileRepository {
         }
     }
 
-    async findById(id: string): Promise<case_files | null> {
-        return await models.case_files.findByPk(id, {
+    async findById(id: string): Promise<case_files> {
+        const caseFile = await models.case_files.findByPk(id, {
             include: [
                 {
                     model: models.patients,
@@ -86,10 +86,14 @@ export class CaseFileRepository {
                 }
             ]
         });
+        if (!caseFile) {
+            throw new Error('Case file not found');
+        }
+        return caseFile;
     }
 
-    async findByCaseNumber(caseNumber: string): Promise<case_files | null> {
-        return await models.case_files.findOne({
+    async findByCaseNumber(caseNumber: string): Promise<case_files> {
+        const caseFile = await models.case_files.findOne({
             where: { case_number: caseNumber },
             include: [
                 { model: models.patients, as: 'patient', attributes: ['id', 'file_number', 'first_name', 'last_name'] },
@@ -109,6 +113,10 @@ export class CaseFileRepository {
                 }
             ]
         });
+        if (!caseFile) {
+            throw new Error('Case file not found');
+        }
+        return caseFile;
     }
 
     async create(data: {
@@ -149,9 +157,11 @@ export class CaseFileRepository {
         case_status?: CaseStatus;
         current_status_flow?: CaseStatusFlow;
         notes?: string;
-    }, transaction?: Transaction): Promise<case_files | null> {
+    }, transaction?: Transaction): Promise<case_files> {
         const caseFile = await models.case_files.findByPk(id, txOpt(transaction));
-        if (!caseFile) return null;
+        if (!caseFile) {
+            throw new Error('Case file not found');
+        }
         await caseFile.update(data, txOpt(transaction));
         return caseFile;
     }
@@ -197,7 +207,7 @@ export class CaseFileRepository {
         return `${prefix}-${String(sequence).padStart(4, '0')}`;
     }
 
-    async validateCompliance(caseId: string): Promise<CaseValidationResponse | null> {
+    async validateCompliance(caseId: string): Promise<CaseValidationResponse> {
         const caseFile = await models.case_files.findByPk(caseId, {
             include: [
                 { model: models.admission_types, as: 'admissionType' },
@@ -206,12 +216,17 @@ export class CaseFileRepository {
             ]
         });
 
-        if (!caseFile || !caseFile.admissionType) return null;
+        if (!caseFile) {
+            throw new Error('Case file not found');
+        }
+        if (!caseFile.admissionType) {
+            throw new Error('Case file admission type not found');
+        }
 
         const admType = caseFile.admissionType;
         const hasRoom = (caseFile.case_rooms?.length ?? 0) > 0;
         const hasPackage = (caseFile.case_package_assignments?.length ?? 0) > 0;
-        const hasPayment = false; // TODO: Check billing.invoices when billing module is integrated
+        const hasPayment = false;
 
         const messages: string[] = [];
         let status: ValidationStatus = ValidationStatus.COMPLIANT;

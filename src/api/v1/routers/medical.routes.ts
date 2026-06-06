@@ -28,9 +28,6 @@ const router = Router();
 
 const caseFileController = new CaseFileController(new CaseFileService(new CaseFileRepository()));
 
-console.log('✅ Medical routes module loaded');
-console.log('📦 PackageController:', PackageController ? 'Loaded' : 'Not loaded');
-
 // All medical routes require authentication
 router.use(authMiddleware);
 
@@ -64,9 +61,8 @@ router.put('/admission-types/:id', AdmissionTypeController.updateAdmissionType);
 router.delete('/admission-types/:id', AdmissionTypeController.deleteAdmissionType);
 
 // packages routes
-console.log('Registering packages route. Controller:', PackageController);
 router.get('/packages', (req, res, next) => {
-PackageController.getAll(req, res).catch(next);
+    PackageController.getAll(req, res).catch(next);
 });
 router.get('/packages/:id', PackageController.getById);
 router.get('/packageDetail/:id', PackageController.getPackageDetails);

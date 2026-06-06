@@ -34,17 +34,25 @@ export class AdmissionTypeRepository {
     /**
      * Find admission type by ID
      */
-    static async findById(id: string): Promise<admission_types | null> {
-        return await models.admission_types.findByPk(id);
+    static async findById(id: string): Promise<admission_types> {
+        const type = await models.admission_types.findByPk(id);
+        if (!type) {
+            throw new Error('Admission type not found');
+        }
+        return type;
     }
 
     /**
      * Find admission type by code
      */
-    static async findByCode(code: string): Promise<admission_types | null> {
-        return await models.admission_types.findOne({
+    static async findByCode(code: string): Promise<admission_types> {
+        const type = await models.admission_types.findOne({
             where: { code }
         });
+        if (!type) {
+            throw new Error('Admission type not found');
+        }
+        return type;
     }
 
     /**
@@ -85,16 +93,16 @@ export class AdmissionTypeRepository {
     /**
      * Update admission type
      */
-    static async update(id: string, data: any): Promise<admission_types | null> {
+    static async update(id: string, data: Record<string, unknown>): Promise<admission_types> {
         const type = await models.admission_types.findByPk(id);
 
         if (!type) {
-            return null;
+            throw new Error('Admission type not found');
         }
 
-        const updateData: any = {};
+        const updateData: Record<string, unknown> = {};
 
-        if (data.code) updateData.code = data.code.toUpperCase();
+        if (data.code) updateData.code = (data.code as string).toUpperCase();
         if (data.name) updateData.name = data.name;
         if (data.requires_hospitalization !== undefined) updateData.requires_hospitalization = data.requires_hospitalization;
         if (data.requires_package !== undefined) updateData.requires_package = data.requires_package;

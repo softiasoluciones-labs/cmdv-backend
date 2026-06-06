@@ -22,7 +22,7 @@ export class UserRepository {
     /**
      * Find user by email
      */
-    static async findByEmail(email: string): Promise<users | null> {
+    static async findByEmail(email: string): Promise<users> {
         try {
             const user = await models.users.findOne({
                 where: {
@@ -30,42 +30,51 @@ export class UserRepository {
                     is_active: true,
                     [Op.or]: [
                         { locked_until: null },
-                        { locked_until: { [Op.lt]: new Date() } } // expirado
+                        { locked_until: { [Op.lt]: new Date() } }
                     ]
                 }
             });
+            if (!user) {
+                throw new Error('User not found');
+            }
             return user;
         } catch (error) {
             secureLogger.error('Error finding user by email:', error);
-            return null;
+            throw new Error('Error finding user by email');
         }
     }
 
     /**
      * Find user by ID
      */
-    static async findById(userId: string): Promise<users | null> {
+    static async findById(userId: string): Promise<users> {
         try {
             const user = await models.users.findByPk(userId);
+            if (!user) {
+                throw new Error('User not found');
+            }
             return user;
         } catch (error) {
             secureLogger.error('Error finding user by ID:', error);
-            return null;
+            throw new Error('Error finding user by ID');
         }
     }
 
     /**
      * Find user by username
      */
-    static async findByUsername(username: string): Promise<users | null> {
+    static async findByUsername(username: string): Promise<users> {
         try {
             const user = await models.users.findOne({
                 where: { username, is_active: true }
             });
+            if (!user) {
+                throw new Error('User not found');
+            }
             return user;
         } catch (error) {
             secureLogger.error('Error finding user by username:', error);
-            return null;
+            throw new Error('Error finding user by username');
         }
     }
 
@@ -241,17 +250,16 @@ export class UserRepository {
     /**
      * Verify reset token and get user ID
      */
-    static verifyResetToken(token: string): string | null {
+    static verifyResetToken(token: string): string {
         const resetData = this.resetTokens.get(token);
 
         if (!resetData) {
-            return null;
+            throw new Error('Not found');
         }
 
-        // Check if expired
         if (new Date() > resetData.expiresAt) {
             this.resetTokens.delete(token);
-            return null;
+            throw new Error('Not found');
         }
 
         return resetData.userId;

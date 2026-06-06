@@ -149,7 +149,7 @@ export class AdmissionTypeService {
             throw new Error(businessValidation.message);
         }*/
 
-        const updated = await AdmissionTypeRepository.update(id, data);
+        const updated = await AdmissionTypeRepository.update(id, data as unknown as Record<string, unknown>);
 
         if (!updated) {
             throw new Error(`Admission type with ID ${id} not found`);

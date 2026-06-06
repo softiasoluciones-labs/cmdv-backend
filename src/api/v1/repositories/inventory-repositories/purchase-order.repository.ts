@@ -52,9 +52,9 @@ export class PurchaseOrderRepository {
     static async findById(
         id: string,
         options: { transaction?: Transaction; lock?: boolean } = {}
-    ): Promise<purchase_orders | null> {
+    ): Promise<purchase_orders> {
         try {
-            const findOptions: any = {
+            const findOptions: Record<string, unknown> = {
                 include: [
                     {
                         model: models.suppliers,
@@ -84,30 +84,35 @@ export class PurchaseOrderRepository {
             };
             if (options.transaction) findOptions.transaction = options.transaction;
             if (options.lock) {
-                // Lock only the purchase_orders row (avoid locking joined tables)
                 findOptions.lock = { level: Transaction.LOCK.UPDATE, of: models.purchase_orders };
             }
 
             const order = await models.purchase_orders.findByPk(id, findOptions);
+            if (!order) {
+                throw new Error('Purchase order not found');
+            }
             return order;
         } catch (error) {
             secureLogger.error('Error finding purchase order by ID:', error);
-            return null;
+            throw new Error('Error finding purchase order by ID');
         }
     }
 
     /**
      * Find purchase order by order number
      */
-    static async findByOrderNumber(orderNumber: string): Promise<purchase_orders | null> {
+    static async findByOrderNumber(orderNumber: string): Promise<purchase_orders> {
         try {
             const order = await models.purchase_orders.findOne({
                 where: { po_number: orderNumber }
             });
+            if (!order) {
+                throw new Error('Purchase order not found');
+            }
             return order;
         } catch (error) {
             secureLogger.error('Error finding purchase order by number:', error);
-            return null;
+            throw new Error('Error finding purchase order by number');
         }
     }
 

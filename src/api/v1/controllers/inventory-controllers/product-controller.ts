@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ProductService } from '../../services/inventory-services/product.service';
 import { ProductListFilters } from '../../dtos/inventory-dtos/product-dto';
+import { successResponse, errorResponse } from '../../../../utils/response.utils';
 
 export class ProductController {
     static async getAll(req: Request, res: Response): Promise<void> {
@@ -15,28 +16,11 @@ export class ProductController {
                 limit: req.query.limit ? parseInt(req.query.limit as string) : 50
             };
 
-            console.log(filters);
-
             const result = await ProductService.getAllProducts(filters);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Products retrieved successfully',
-                data: result,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            successResponse(res, 200, 'Products retrieved successfully', result);
         } catch (error: any) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error.message || 'Internal server error',
-                data: null,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString(),
-                errorCode: 'PRODUCT_FETCH_ERROR'
-            });
+            errorResponse(res, 500, error.message || 'Internal server error');
         }
     }
 
@@ -50,24 +34,10 @@ export class ProductController {
 
             const product = await ProductService.getProductById(id);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Product retrieved successfully',
-                data: product,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            successResponse(res, 200, 'Product retrieved successfully', product);
         } catch (error: any) {
             const statusCode = error.message === 'Product not found' ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error.message,
-                data: null,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            errorResponse(res, statusCode, error.message);
         }
     }
 
@@ -75,24 +45,10 @@ export class ProductController {
         try {
             const product = await ProductService.createProduct(req.body);
 
-            res.status(201).json({
-                success: true,
-                code: 201,
-                message: 'Product created successfully',
-                data: product,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            successResponse(res, 201, 'Product created successfully', product);
         } catch (error: any) {
             const statusCode = error.message.includes('already exists') ? 409 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error.message,
-                data: null,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            errorResponse(res, statusCode, error.message);
         }
     }
 
@@ -104,25 +60,11 @@ export class ProductController {
             }
             const product = await ProductService.updateProduct(id, req.body);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Product updated successfully',
-                data: product,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            successResponse(res, 200, 'Product updated successfully', product);
         } catch (error: any) {
             const statusCode = error.message === 'Product not found' ? 404 :
                 error.message.includes('already exists') ? 409 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error.message,
-                data: null,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            errorResponse(res, statusCode, error.message);
         }
     }
 
@@ -135,24 +77,10 @@ export class ProductController {
 
             await ProductService.deleteProduct(id);
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Product deleted successfully',
-                data: null,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            successResponse(res, 200, 'Product deleted successfully', null);
         } catch (error: any) {
             const statusCode = error.message === 'Product not found' ? 404 : 500;
-            res.status(statusCode).json({
-                success: false,
-                code: statusCode,
-                message: error.message,
-                data: null,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            errorResponse(res, statusCode, error.message);
         }
     }
 
@@ -160,23 +88,9 @@ export class ProductController {
         try {
             const products = await ProductService.getLowStockProducts();
 
-            res.status(200).json({
-                success: true,
-                code: 200,
-                message: 'Low stock products retrieved successfully',
-                data: products,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            successResponse(res, 200, 'Low stock products retrieved successfully', products);
         } catch (error: any) {
-            res.status(500).json({
-                success: false,
-                code: 500,
-                message: error.message,
-                data: null,
-                version: process.env.API_VERSION || '1.0.0',
-                timestamp: new Date().toISOString()
-            });
+            errorResponse(res, 500, error.message);
         }
     }
 }

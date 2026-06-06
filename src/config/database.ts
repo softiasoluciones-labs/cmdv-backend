@@ -16,7 +16,7 @@ module.exports = {
       idle: 10000
     },
     define: {
-      timestamps: false, // Ya que tienes created_at, updated_at personalizados
+      timestamps: true,
       underscored: false
     }
   },

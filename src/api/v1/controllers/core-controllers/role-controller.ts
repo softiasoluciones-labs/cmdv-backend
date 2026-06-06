@@ -18,16 +18,14 @@ export class RoleController {
                 search: typeof search === 'string' ? search : undefined
             });
 
-            res.status(200).json(
-                successResponse(data, 'Roles retrieved successfully')
-            );
+            successResponse(res, 200, 'Roles retrieved successfully', data);
         } catch (error) {
             const message =
                 error instanceof Error
                     ? error.message
                     : 'Failed to retrieve roles';
 
-            res.status(500).json(errorResponse(message));
+            errorResponse(res, 500, message);
         }
     }
 
@@ -39,7 +37,7 @@ export class RoleController {
             const { name } = req.params;
 
             if (!name) {
-                res.status(400).json(errorResponse('Role name is required'));
+                errorResponse(res, 400, 'Role name is required');
                 return;
             }
 
@@ -48,20 +46,18 @@ export class RoleController {
             const data = await RoleService.getRoleByName(roleKey);
 
             if (!data) {
-                res.status(404).json(errorResponse('Role not found'));
+                errorResponse(res, 404, 'Role not found');
                 return;
             }
 
-            res.status(200).json(
-                successResponse(data, 'Role details retrieved successfully')
-            );
+            successResponse(res, 200, 'Role details retrieved successfully', data);
         } catch (error) {
             const message =
                 error instanceof Error
                     ? error.message
                     : 'Failed to retrieve role details';
 
-            res.status(500).json(errorResponse(message));
+            errorResponse(res, 500, message);
         }
     }
 }
