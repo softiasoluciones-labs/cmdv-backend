@@ -106,4 +106,60 @@ export class UserController {
             errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
         }
     }
+
+    /**
+     * Deactivate (soft delete) a user
+     */
+    static async deactivateUser(req: Request, res: Response): Promise<void> {
+        try {
+            const id = req.params.id as string;
+            const result = await UserService.deactivateUser(id);
+
+            if (result.success) {
+                successResponse(res, 200, result.message);
+            } else {
+                errorResponse(res, 400, result.message);
+            }
+        } catch (error) {
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
+        }
+    }
+
+    /**
+     * Lock (block) a user account
+     */
+    static async lockUser(req: Request, res: Response): Promise<void> {
+        try {
+            const id = req.params.id as string;
+            const durationMinutes = req.body.duration_minutes ? parseInt(req.body.duration_minutes as string) : 30;
+
+            const result = await UserService.lockUser(id, durationMinutes);
+
+            if (result.success) {
+                successResponse(res, 200, result.message, { locked_until: result.lockedUntil });
+            } else {
+                errorResponse(res, 400, result.message);
+            }
+        } catch (error) {
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
+        }
+    }
+
+    /**
+     * Unlock a user account
+     */
+    static async unlockUser(req: Request, res: Response): Promise<void> {
+        try {
+            const id = req.params.id as string;
+            const result = await UserService.unlockUser(id);
+
+            if (result.success) {
+                successResponse(res, 200, result.message);
+            } else {
+                errorResponse(res, 400, result.message);
+            }
+        } catch (error) {
+            errorResponse(res, 500, error instanceof Error ? error.message : 'Internal server error');
+        }
+    }
 }

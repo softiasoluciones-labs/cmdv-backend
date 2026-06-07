@@ -270,6 +270,83 @@ export class UserService {
     }
 
     /**
+     * Deactivate (soft delete) a user
+     */
+    static async deactivateUser(userId: string): Promise<{ success: boolean; message: string }> {
+        try {
+            const user = await UserRepository.findById(userId);
+            if (!user) {
+                return { success: false, message: 'User not found' };
+            }
+
+            if (!user.is_active) {
+                return { success: false, message: 'User is already deactivated' };
+            }
+
+            const deactivated = await UserRepository.deactivate(userId);
+            if (deactivated) {
+                return { success: true, message: 'User deactivated successfully' };
+            }
+            return { success: false, message: 'Failed to deactivate user' };
+        } catch (error) {
+            console.error('Error in UserService.deactivateUser:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Lock (block) a user account
+     */
+    static async lockUser(userId: string, durationMinutes: number = 30): Promise<{ success: boolean; message: string; lockedUntil?: Date }> {
+        try {
+            const user = await UserRepository.findById(userId);
+            if (!user) {
+                return { success: false, message: 'User not found' };
+            }
+
+            if (user.locked_until && user.locked_until > new Date()) {
+                return { success: false, message: 'User is already locked' };
+            }
+
+            const lockedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+            const locked = await UserRepository.lockUser(userId, lockedUntil);
+
+            if (locked) {
+                return { success: true, message: 'User locked successfully', lockedUntil };
+            }
+            return { success: false, message: 'Failed to lock user' };
+        } catch (error) {
+            console.error('Error in UserService.lockUser:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Unlock a user account
+     */
+    static async unlockUser(userId: string): Promise<{ success: boolean; message: string }> {
+        try {
+            const user = await UserRepository.findById(userId);
+            if (!user) {
+                return { success: false, message: 'User not found' };
+            }
+
+            if (!user.locked_until || user.locked_until <= new Date()) {
+                return { success: false, message: 'User is not locked' };
+            }
+
+            const unlocked = await UserRepository.unlockUser(userId);
+            if (unlocked) {
+                return { success: true, message: 'User unlocked successfully' };
+            }
+            return { success: false, message: 'Failed to unlock user' };
+        } catch (error) {
+            console.error('Error in UserService.unlockUser:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Helper para construir respuesta de error
      */
     private static buildErrorResponse(message: string): any {

@@ -132,6 +132,75 @@ export class UserRepository {
     }
 
     /**
+     * Deactivate (soft delete) a user
+     */
+    static async deactivate(userId: string): Promise<boolean> {
+        try {
+            const [affectedCount] = await models.users.update(
+                {
+                    is_active: false,
+                    updated_at: new Date()
+                },
+                { where: { id: userId } }
+            );
+
+            if (affectedCount > 0) {
+                await this.removeAllRefreshTokens(userId);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            secureLogger.error('Error deactivating user:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Lock (block) a user account
+     */
+    static async lockUser(userId: string, lockedUntil: Date): Promise<boolean> {
+        try {
+            const [affectedCount] = await models.users.update(
+                {
+                    locked_until: lockedUntil,
+                    failed_login_attempts: 0,
+                    updated_at: new Date()
+                },
+                { where: { id: userId } }
+            );
+
+            if (affectedCount > 0) {
+                await this.removeAllRefreshTokens(userId);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            secureLogger.error('Error locking user:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Unlock a user account
+     */
+    static async unlockUser(userId: string): Promise<boolean> {
+        try {
+            const [affectedCount] = await models.users.update(
+                {
+                    locked_until: null,
+                    failed_login_attempts: 0,
+                    updated_at: new Date()
+                },
+                { where: { id: userId } }
+            );
+            return affectedCount > 0;
+        } catch (error) {
+            secureLogger.error('Error unlocking user:', error);
+            return false;
+        }
+    }
+
+    /**
      * Update user password
      */
     static async updatePassword(userId: string, newPasswordHash: string): Promise<boolean> {
