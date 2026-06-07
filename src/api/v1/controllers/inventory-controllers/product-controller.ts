@@ -8,13 +8,14 @@ export class ProductController {
         try {
             const filters: ProductListFilters = {
                 categoryId: req.query.categoryId as string,
-                isActive: req.query.isActive === 'true',
-                requiresPrescription: req.query.requiresPrescription === 'true',
-                lowStock: req.query.lowStock === 'true',
+                ...(req.query.isActive !== undefined && { isActive: req.query.isActive === 'true' }),
+                ...(req.query.requiresPrescription !== undefined && { requiresPrescription: req.query.requiresPrescription === 'true' }),
+                ...(req.query.lowStock !== undefined && { lowStock: req.query.lowStock === 'true' }),
                 search: req.query.search as string,
                 page: req.query.page ? parseInt(req.query.page as string) : 1,
                 limit: req.query.limit ? parseInt(req.query.limit as string) : 50
             };
+
 
             const result = await ProductService.getAllProducts(filters);
 
