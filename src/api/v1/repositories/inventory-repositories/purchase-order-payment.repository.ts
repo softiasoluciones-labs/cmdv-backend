@@ -34,7 +34,10 @@ export class PurchaseOrderPaymentRepository {
         where: { purchase_order_id: purchaseOrderId },
         include: [{
           model: models.purchase_order_payment_details,
-          as: 'purchase_order_payment_details'
+          as: 'purchase_order_payment_details',
+          attributes: {
+            exclude: ['createdAt', 'updatedAt']
+          }
         }],
         order: [['payment_number', 'ASC'], ['created_at', 'ASC']]
       });
@@ -93,9 +96,10 @@ export class PurchaseOrderPaymentRepository {
     transaction?: Transaction
   ): Promise<purchase_order_payments> {
     const t = transaction || await sequelize.transaction();
+    let payment: purchase_order_payments | null = null;
 
     try {
-      const payment = await models.purchase_order_payments.create(
+      payment = await models.purchase_order_payments.create(
         paymentData as purchase_order_paymentsCreationAttributes,
         { transaction: t }
       );
@@ -116,7 +120,17 @@ export class PurchaseOrderPaymentRepository {
         await t.commit();
       }
 
-      return await this.findById(payment.id);
+      try {
+        const paymentWithDetails = await models.purchase_order_payments.findByPk(payment.id, {
+          include: [{
+            model: models.purchase_order_payment_details,
+            as: 'purchase_order_payment_details'
+          }]
+        });
+        return paymentWithDetails || payment;
+      } catch {
+        return payment;
+      }
     } catch (error) {
       if (!transaction) {
         await t.rollback();

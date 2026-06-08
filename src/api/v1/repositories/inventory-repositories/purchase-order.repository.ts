@@ -10,13 +10,23 @@ import { v4 as uuidv4 } from 'uuid';
  */
 export class PurchaseOrderRepository {
     /**
-     * Find all purchase orders
+     * Find all purchase orders with optional status filter
      */
-    static async findAll(page: number = 1, limit: number = 50): Promise<{ orders: purchase_orders[], total: number }> {
+    static async findAll(
+        page: number = 1,
+        limit: number = 50,
+        status?: string
+    ): Promise<{ orders: purchase_orders[], total: number }> {
         try {
             const offset = (page - 1) * limit;
 
+            const where: any = {};
+            if (status) {
+                where.status = status;
+            }
+
             const { rows, count } = await models.purchase_orders.findAndCountAll({
+                where,
                 include: [
                     {
                         model: models.suppliers,

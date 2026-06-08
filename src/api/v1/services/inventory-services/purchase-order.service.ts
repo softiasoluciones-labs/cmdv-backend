@@ -44,8 +44,12 @@ export class PurchaseOrderService {
         };
     }
 
-    static async getAllPurchaseOrders(page: number = 1, limit: number = 50): Promise<{ orders: PurchaseOrderResponse[], total: number, page: number, limit: number }> {
-        const { orders, total } = await PurchaseOrderRepository.findAll(page, limit);
+    static async getAllPurchaseOrders(
+        page: number = 1,
+        limit: number = 50,
+        status?: string
+    ): Promise<{ orders: PurchaseOrderResponse[], total: number, page: number, limit: number }> {
+        const { orders, total } = await PurchaseOrderRepository.findAll(page, limit, status);
         return {
             orders: orders.map(o => this.toPurchaseOrderResponse(o)),
             total,
