@@ -9,6 +9,8 @@ import { purchase_order_payments as _purchase_order_payments } from "./purchase_
 import type { purchase_order_paymentsAttributes, purchase_order_paymentsCreationAttributes } from "./purchase_order_payments";
 import { purchase_order_payment_details as _purchase_order_payment_details } from "./purchase_order_payment_details";
 import type { purchase_order_payment_detailsAttributes, purchase_order_payment_detailsCreationAttributes } from "./purchase_order_payment_details";
+import { purchase_order_status_history as _purchase_order_status_history } from "./purchase_order_status_history";
+import type { purchase_order_status_historyAttributes, purchase_order_status_historyCreationAttributes } from "./purchase_order_status_history";
 import { purchase_orders as _purchase_orders } from "./purchase_orders";
 import type { purchase_ordersAttributes, purchase_ordersCreationAttributes } from "./purchase_orders";
 import { stock_movements as _stock_movements } from "./stock_movements";
@@ -28,6 +30,7 @@ export {
   _purchase_order_details as purchase_order_details,
   _purchase_order_payments as purchase_order_payments,
   _purchase_order_payment_details as purchase_order_payment_details,
+  _purchase_order_status_history as purchase_order_status_history,
   _purchase_orders as purchase_orders,
   _stock_movements as stock_movements,
   _suppliers as suppliers,
@@ -46,6 +49,8 @@ export type {
   purchase_order_paymentsCreationAttributes,
   purchase_order_payment_detailsAttributes,
   purchase_order_payment_detailsCreationAttributes,
+  purchase_order_status_historyAttributes,
+  purchase_order_status_historyCreationAttributes,
   purchase_ordersAttributes,
   purchase_ordersCreationAttributes,
   stock_movementsAttributes,
@@ -64,6 +69,7 @@ export function initModels(sequelize: Sequelize) {
   const purchase_order_details = _purchase_order_details.initModel(sequelize);
   const purchase_order_payments = _purchase_order_payments.initModel(sequelize);
   const purchase_order_payment_details = _purchase_order_payment_details.initModel(sequelize);
+  const purchase_order_status_history = _purchase_order_status_history.initModel(sequelize);
   const purchase_orders = _purchase_orders.initModel(sequelize);
   const stock_movements = _stock_movements.initModel(sequelize);
   const suppliers = _suppliers.initModel(sequelize);
@@ -91,6 +97,11 @@ export function initModels(sequelize: Sequelize) {
   purchase_order_payments.belongsTo(users, { as: "created_by_user", foreignKey: "created_by" });
   users.hasMany(purchase_order_payments, { as: "purchase_order_payments", foreignKey: "created_by" });
 
+  purchase_order_status_history.belongsTo(purchase_orders, { as: "purchase_order", foreignKey: "purchase_order_id" });
+  purchase_orders.hasMany(purchase_order_status_history, { as: "purchase_order_status_histories", foreignKey: "purchase_order_id" });
+  purchase_order_status_history.belongsTo(users, { as: "changed_by_user", foreignKey: "changed_by" });
+  users.hasMany(purchase_order_status_history, { as: "purchase_order_status_histories", foreignKey: "changed_by" });
+
   purchase_orders.belongsTo(suppliers, { as: "supplier", foreignKey: "supplier_id" });
   suppliers.hasMany(purchase_orders, { as: "purchase_orders", foreignKey: "supplier_id" });
   purchase_orders.belongsTo(users, { as: "approved_by_user", foreignKey: "approved_by" });
@@ -114,6 +125,7 @@ export function initModels(sequelize: Sequelize) {
     purchase_order_details: purchase_order_details,
     purchase_order_payments: purchase_order_payments,
     purchase_order_payment_details: purchase_order_payment_details,
+    purchase_order_status_history: purchase_order_status_history,
     purchase_orders: purchase_orders,
     stock_movements: stock_movements,
     suppliers: suppliers,

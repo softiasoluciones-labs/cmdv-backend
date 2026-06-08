@@ -6,7 +6,7 @@ export class PurchaseController {
         try {
             const page = req.query.page ? parseInt(req.query.page as string) : 1;
             const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-            const status = req.query.status as string | undefined;
+            const status = req.query.status as string | string[] | undefined;
             const result = await PurchaseOrderService.getAllPurchaseOrders(page, limit, status);
             res.status(200).json({ success: true, code: 200, message: 'Purchase orders retrieved successfully', data: result });
         } catch (error: any) {
@@ -87,6 +87,33 @@ export class PurchaseController {
         } catch (error: any) {
             const status = error.message === 'Purchase order not found' ? 404 :
                 error.message.includes('Cannot receive') ? 400 : 500;
+            res.status(status).json({ success: false, code: status, message: error.message, data: null });
+        }
+    }
+
+    static async removeOrderDetail(req: Request, res: Response): Promise<void> {
+        try {
+            const { orderId, detailId } = req.params;
+
+            if (!orderId || !detailId) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Order ID y Detail ID son requeridos'
+                });
+                return;
+            }
+
+            const result = await PurchaseOrderService.removeOrderDetail(orderId, detailId);
+
+            res.status(200).json({
+                success: true,
+                message: 'Detalle eliminado exitosamente',
+                data: result
+            });
+        } catch (error: any) {
+            const status = error.message === 'Purchase order detail not found' ||
+                error.message === 'Detalle no encontrado o no pertenece a esta orden' ? 404 :
+                error.message.includes('No se puede eliminar') ? 400 : 500;
             res.status(status).json({ success: false, code: status, message: error.message, data: null });
         }
     }

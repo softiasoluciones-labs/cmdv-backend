@@ -9,20 +9,38 @@ import { v4 as uuidv4 } from 'uuid';
  * Purchase Order Repository
  */
 export class PurchaseOrderRepository {
+    private static async setAuditUserContext(userId: string, transaction: Transaction): Promise<void> {
+        await sequelize.query(
+            "SELECT set_config('app.current_user_id', :userId, true)",
+            {
+                replacements: { userId },
+                transaction
+            }
+        );
+    }
+
     /**
      * Find all purchase orders with optional status filter
      */
     static async findAll(
         page: number = 1,
         limit: number = 50,
-        status?: string
+        status?: string | string[]
     ): Promise<{ orders: purchase_orders[], total: number }> {
         try {
             const offset = (page - 1) * limit;
 
             const where: any = {};
             if (status) {
-                where.status = status;
+                const statuses = Array.isArray(status)
+                    ? status.flatMap(value => value.split(',')).map(value => value.trim()).filter(Boolean)
+                    : status.split(',').map(value => value.trim()).filter(Boolean);
+
+                if (statuses.length > 1) {
+                    where.status = { [Op.in]: statuses };
+                } else if (statuses.length === 1) {
+                    where.status = statuses[0];
+                }
             }
 
             const { rows, count } = await models.purchase_orders.findAndCountAll({
@@ -37,6 +55,15 @@ export class PurchaseOrderRepository {
                         model: models.warehouses,
                         as: 'warehouse',
                         attributes: ['id', 'name', 'code']
+                    },
+                    {
+                        model: models.purchase_order_details,
+                        as: 'purchase_order_details',
+                        include: [{
+                            model: models.products,
+                            as: 'product',
+                            attributes: ['id', 'name', 'code']
+                        }]
                     },
                     {
                         model: models.users,
@@ -103,6 +130,9 @@ export class PurchaseOrderRepository {
             }
             return order;
         } catch (error) {
+            if (error instanceof Error && error.message === 'Purchase order not found') {
+                throw error;
+            }
             secureLogger.error('Error finding purchase order by ID:', error);
             throw new Error('Error finding purchase order by ID');
         }
@@ -196,6 +226,10 @@ export class PurchaseOrderRepository {
         try {
             const updateFields: any = { status: status as any };
 
+            if (transaction && approvedBy) {
+                await this.setAuditUserContext(approvedBy, transaction);
+            }
+
             if (status === 'approved') {
                 updateFields.approved_by = approvedBy;
                 updateFields.approved_at = new Date();
@@ -236,6 +270,79 @@ export class PurchaseOrderRepository {
         } catch (error) {
             secureLogger.error('Error updating received quantity:', error);
             return false;
+        }
+    }
+
+    /**
+     * Remove item detail for order detail 
+     */
+    static async removeDetail(
+        orderId: string,
+        detailId: string,
+        transaction?: Transaction
+    ): Promise<boolean> {
+        try {
+            const purchase_order_detail = await models.purchase_order_details.findOne({
+                where: {
+                    id: detailId,
+                    purchase_order_id: orderId
+                },
+                ...(transaction ? { transaction } : {})
+            });
+            if (!purchase_order_detail) {
+                throw new Error('Purchase order detail not found');
+            }
+
+            const updateOptions: any = { where: { id: detailId } };
+            if (transaction) updateOptions.transaction = transaction;
+
+            const updatedCount = await models.purchase_order_details.destroy(updateOptions);
+
+            if (updatedCount > 0) {
+                await this.recalculateOrderTotals(orderId, transaction);
+            }
+
+            return updatedCount > 0;
+        } catch (error) {
+            secureLogger.error('Error removing order detail:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Recalculate order subtotal and total based on remaining details
+     */
+    private static async recalculateOrderTotals(
+        orderId: string,
+        transaction?: Transaction
+    ): Promise<void> {
+        try {
+            const order = await models.purchase_orders.findByPk(orderId, {
+                include: [{
+                    model: models.purchase_order_details,
+                    as: 'purchase_order_details'
+                }],
+                transaction: transaction || null
+            });
+
+            if (!order) return;
+
+            const subtotal = (order as any).purchase_order_details.reduce(
+                (sum: number, detail: any) => sum + parseFloat((detail.total || 0).toString()),
+                0
+            );
+
+            const discount = order.discount ? parseFloat(order.discount.toString()) : 0;
+            const shippingCost = order.shipping_cost ? parseFloat(order.shipping_cost.toString()) : 0;
+            const total = subtotal - discount + shippingCost;
+
+            await models.purchase_orders.update(
+                { subtotal, total },
+                { where: { id: orderId }, transaction: transaction || null }
+            );
+        } catch (error) {
+            secureLogger.error('Error recalculating order totals:', error);
+            throw error;
         }
     }
 

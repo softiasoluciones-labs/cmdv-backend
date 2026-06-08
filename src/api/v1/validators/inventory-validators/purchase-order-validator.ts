@@ -1,4 +1,4 @@
-import { body, ValidationChain } from 'express-validator';
+import { body, param, ValidationChain } from 'express-validator';
 
 /**
  * Validation rules for create purchase order
@@ -117,6 +117,22 @@ export const receivePurchaseOrderValidator: ValidationChain[] = [
         .trim()
         .isLength({ max: 1000 })
         .withMessage('Notes must not exceed 1000 characters')
+];
+
+/**
+ * Validation rule for delete item detail of purchase order 
+ */
+export const deletePurchaseOrderItemValidator: ValidationChain[] = [
+    param('detailId')
+        .notEmpty()
+        .withMessage('Detail ID is required')
+        .isUUID()
+        .withMessage('Detail ID must be a valid UUID'),
+    param('orderId')
+        .notEmpty()
+        .withMessage('Order ID is required')
+        .isUUID()
+        .withMessage('Order ID must be a valid UUID')
 ];
 
 /**

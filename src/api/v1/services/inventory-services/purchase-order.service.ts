@@ -1,5 +1,6 @@
 import { PurchaseOrderRepository } from '../../repositories/inventory-repositories/purchase-order.repository';
 import { StockMovementRepository } from '../../repositories/inventory-repositories/stock-movement.repository';
+import { PurchaseOrderPaymentRepository } from '../../repositories/inventory-repositories/purchase-order-payment.repository';
 import { PurchaseOrderResponse, CreatePurchaseOrderRequest, UpdatePurchaseOrderRequest, ReceivePurchaseOrderRequest, PurchaseOrderItemResponse } from '../../dtos/inventory-dtos/purchase-order-dto';
 import { purchase_orders } from '../../../../database/inventory/purchase_orders';
 import { sequelize } from '../../../../database';
@@ -14,7 +15,7 @@ export class PurchaseOrderService {
             productName: detail.product?.name,
             quantity: detail.quantity,
             unitCost: detail.unit_cost ? parseFloat(detail.unit_cost.toString()) : 0,
-            totalCost: detail.total_cost ? parseFloat(detail.total_cost.toString()) : 0,
+            totalCost: detail.total ? parseFloat(detail.total.toString()) : 0,
             receivedQuantity: detail.received_quantity,
             expirationDate: detail.expiration_date,
             batchNumber: detail.batch_number,
@@ -26,7 +27,7 @@ export class PurchaseOrderService {
             orderNumber: order.po_number,
             supplierId: order.supplier_id,
             warehouseId: order.warehouse_id,
-            ...((order as any).supplier?.name !== undefined && { supplierName: (order as any).supplier.name }),
+            ...((order as any).supplier?.business_name !== undefined && { supplierName: (order as any).supplier.business_name }),
             ...((order as any).warehouse?.name !== undefined && { warehouseName: (order as any).warehouse.name }),
             ...(order.order_date && { orderDate: order.order_date.toString() }),
             ...(order.expected_delivery_date && { expectedDate: order.expected_delivery_date.toString() }),
@@ -39,7 +40,7 @@ export class PurchaseOrderService {
             ...(order.payment_terms && { paymentTerms: order.payment_terms }),
             ...(order.notes && { notes: order.notes }),
             ...(order.created_by && { createdBy: order.created_by }),
-            ...(items.length > 0 && { items }),
+            ...({ items }),
             ...(order.created_at && { createdAt: order.created_at })
         };
     }
@@ -47,9 +48,9 @@ export class PurchaseOrderService {
     static async getAllPurchaseOrders(
         page: number = 1,
         limit: number = 50,
-        status?: string
+        status?: string | string[]
     ): Promise<{ orders: PurchaseOrderResponse[], total: number, page: number, limit: number }> {
-        const { orders, total } = await PurchaseOrderRepository.findAll(page, limit, status);
+        const { orders, total } = await PurchaseOrderRepository.findAll(page, limit, status as string | string[] | undefined);
         return {
             orders: orders.map(o => this.toPurchaseOrderResponse(o)),
             total,
@@ -100,40 +101,47 @@ export class PurchaseOrderService {
     };
 
     static async updatePurchaseOrderStatus(id: string, status: string, userId: string): Promise<PurchaseOrderResponse> {
-        const order = await PurchaseOrderRepository.findById(id);
-        if (!order) throw new Error('Purchase order not found');
+        const transaction = await sequelize.transaction();
+        try {
+            const order = await PurchaseOrderRepository.findById(id, { transaction, lock: true });
+            if (!order) throw new Error('Purchase order not found');
 
-        const validStatuses = Object.keys(this.STATUS_TRANSITIONS);
-        if (!validStatuses.includes(status)) {
-            throw new Error(`Invalid status: ${status}`);
-        }
-
-        const currentStatus = order.status || 'draft';
-        if (currentStatus === status) {
-            throw new Error(`Purchase order is already in status: ${status}`);
-        }
-
-        const allowed = this.STATUS_TRANSITIONS[currentStatus] || [];
-        if (!allowed.includes(status)) {
-            throw new Error(`Invalid status transition from '${currentStatus}' to '${status}'`);
-        }
-
-        // Cancelling an order with any received items would leave stock inflated.
-        // Block this — partial returns must go through a separate dedicated flow.
-        if (status === 'cancelled') {
-            const hasReceived = ((order as any).purchase_order_details || []).some(
-                (d: any) => (d.received_quantity || 0) > 0
-            );
-            if (hasReceived) {
-                throw new Error('Cannot cancel order with received items. Create a return instead.');
+            const validStatuses = Object.keys(this.STATUS_TRANSITIONS);
+            if (!validStatuses.includes(status)) {
+                throw new Error(`Invalid status: ${status}`);
             }
+
+            const currentStatus = order.status || 'draft';
+            if (currentStatus === status) {
+                throw new Error(`Purchase order is already in status: ${status}`);
+            }
+
+            const allowed = this.STATUS_TRANSITIONS[currentStatus] || [];
+            if (!allowed.includes(status)) {
+                throw new Error(`Invalid status transition from '${currentStatus}' to '${status}'`);
+            }
+
+            // Cancelling an order with any received items would leave stock inflated.
+            // Block this — partial returns must go through a separate dedicated flow.
+            if (status === 'cancelled') {
+                const hasReceived = ((order as any).purchase_order_details || []).some(
+                    (d: any) => (d.received_quantity || 0) > 0
+                );
+                if (hasReceived) {
+                    throw new Error('Cannot cancel order with received items. Create a return instead.');
+                }
+            }
+
+            const updated = await PurchaseOrderRepository.updateStatus(id, status, userId, transaction);
+            if (!updated) throw new Error('Failed to update purchase order status');
+
+            const updatedOrder = await PurchaseOrderRepository.findById(id, { transaction });
+            await transaction.commit();
+            return this.toPurchaseOrderResponse(updatedOrder!);
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
         }
-
-        const updated = await PurchaseOrderRepository.updateStatus(id, status, userId);
-        if (!updated) throw new Error('Failed to update purchase order status');
-
-        const updatedOrder = await PurchaseOrderRepository.findById(id);
-        return this.toPurchaseOrderResponse(updatedOrder!);
     }
 
     static async receivePurchaseOrder(id: string, data: ReceivePurchaseOrderRequest, userId: string): Promise<PurchaseOrderResponse> {
@@ -208,6 +216,34 @@ export class PurchaseOrderService {
 
             const updated = await PurchaseOrderRepository.findById(id);
             return this.toPurchaseOrderResponse(updated!);
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
+
+    static async removeOrderDetail(orderId: string, detailId: string): Promise<PurchaseOrderResponse> {
+        const transaction = await sequelize.transaction();
+        try {
+            const order = await PurchaseOrderRepository.findById(orderId, { transaction });
+
+            if (order.status !== 'draft') {
+                throw new Error(`No se puede eliminar detalles de una orden en estado "${order.status}". Solo se permiten eliminaciones en estado "borrador"`);
+            }
+
+            const payments = await PurchaseOrderPaymentRepository.findByPurchaseOrderId(orderId);
+            if (payments.length > 0) {
+                throw new Error('No se puede eliminar detalles de una orden que ya tiene pagos asociados');
+            }
+
+            const removed = await PurchaseOrderRepository.removeDetail(orderId, detailId, transaction);
+            if (!removed) {
+                throw new Error('Detalle no encontrado o no pertenece a esta orden');
+            }
+
+            const updatedOrder = await PurchaseOrderRepository.findById(orderId, { transaction });
+            await transaction.commit();
+            return this.toPurchaseOrderResponse(updatedOrder!);
         } catch (error) {
             await transaction.rollback();
             throw error;

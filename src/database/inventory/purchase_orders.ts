@@ -19,7 +19,7 @@ export interface purchase_ordersAttributes {
   shipping_cost?: number;
   total: number;
   payment_terms: "immediate" | "one_payment" | "two_payments" | "three_payments";
-  status?: "draft" | "pending" | "approved" | "received" | "cancelled";
+  status?: "draft" | "pending" | "approved" | "received" | "cancelled" | "closed";
   notes?: string;
   created_at?: Date;
   updated_at?: Date;
@@ -47,7 +47,7 @@ export class purchase_orders extends Model<purchase_ordersAttributes, purchase_o
   shipping_cost?: number;
   total!: number;
   payment_terms!: "immediate" | "one_payment" | "two_payments" | "three_payments";
-  status?: "draft" | "pending" | "approved" | "received" | "cancelled";
+  status?: "draft" | "pending" | "approved" | "received" | "cancelled" | "closed";
   notes?: string;
   created_at?: Date;
   updated_at?: Date;
@@ -159,7 +159,7 @@ export class purchase_orders extends Model<purchase_ordersAttributes, purchase_o
         defaultValue: "immediate"
       },
       status: {
-        type: DataTypes.ENUM("draft", "pending", "approved", "received", "cancelled"),
+        type: DataTypes.ENUM("draft", "pending", "approved", "received", "cancelled", "closed"),
         allowNull: true,
         defaultValue: "draft"
       },

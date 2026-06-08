@@ -2,6 +2,10 @@ import { PurchaseOrderPaymentRepository, CreatePaymentData, CreatePaymentDetailD
 import { PurchaseOrderRepository } from '../../repositories/inventory-repositories/purchase-order.repository';
 import { PaymentResponse, PaymentSummary, CreatePaymentRequest } from '../../dtos/inventory-dtos/purchase-order-payment.dto';
 import { PaymentMethod } from '../../../../database/inventory/purchase_order_payments';
+import { models, sequelize } from '../../../../database';
+import { UserRepository } from '../../repositories/core-repositories/user.repository';
+
+const PO_NOTIFICATION_TEMPLATE = 'purchase_order_completed';
 
 export class PurchaseOrderPaymentService {
   private static toPaymentResponse(payment: any): PaymentResponse {
@@ -29,6 +33,81 @@ export class PurchaseOrderPaymentService {
         authorizationCode: d.authorization_code
       }))
     };
+  }
+
+  private static async hasAllStatusesInHistory(
+    purchaseOrderId: string,
+    statuses: string[],
+    transaction?: any
+  ): Promise<boolean> {
+    const history = await models.purchase_order_status_history.findAll({
+      where: { purchase_order_id: purchaseOrderId },
+      ...(transaction ? { transaction } : {})
+    });
+    const uniqueStatuses = new Set(history.map((h: any) => h.status));
+    return statuses.every(s => uniqueStatuses.has(s));
+  }
+
+  private static async findAdminAndWarehouseManagers(): Promise<any[]> {
+    const admins = await UserRepository.findByRole('admin');
+    const warehouseManagers = await UserRepository.findByRole('warehouse_manager');
+    return [...admins, ...warehouseManagers];
+  }
+
+  private static async createStatusHistoryEntry(
+    purchaseOrderId: string,
+    status: string,
+    changedBy: string,
+    transaction?: any
+  ): Promise<void> {
+    await models.purchase_order_status_history.create(
+      {
+        purchase_order_id: purchaseOrderId,
+        status: status as any,
+        changed_by: changedBy,
+        changed_at: new Date()
+      },
+      transaction ? { transaction } : undefined
+    );
+  }
+
+  private static async closePurchaseOrder(
+    purchaseOrderId: string,
+    order: any,
+    userId: string,
+    transaction: any
+  ): Promise<void> {
+    const updated = await PurchaseOrderRepository.updateStatus(purchaseOrderId, 'closed', userId, transaction);
+    if (!updated) {
+      throw new Error('Failed to close purchase order');
+    }
+
+    await this.createStatusHistoryEntry(
+      purchaseOrderId,
+      'closed',
+      userId,
+      transaction
+    );
+
+    const adminUsers = await this.findAdminAndWarehouseManagers();
+    for (const admin of adminUsers) {
+      await models.notifications.create(
+        {
+          notification_type: 'email',
+          template_code: PO_NOTIFICATION_TEMPLATE,
+          recipient_user_id: admin.id,
+          recipient_email: admin.email,
+          body: `Notificacion de orden de compra ${order.po_number} completada`,
+          priority: 'normal',
+          metadata: {
+            purchase_order_id: purchaseOrderId,
+            po_number: order.po_number,
+            supplier_id: order.supplier_id
+          }
+        },
+        { transaction }
+      );
+    }
   }
 
   static async getPaymentsByPurchaseOrderId(purchaseOrderId: string): Promise<PaymentResponse[]> {
@@ -115,8 +194,37 @@ export class PurchaseOrderPaymentService {
       }));
     }
 
-    const payment = await PurchaseOrderPaymentRepository.create(paymentData, details);
-    return this.toPaymentResponse(payment);
+    const t = await sequelize.transaction();
+    try {
+      const payment = await PurchaseOrderPaymentRepository.create(paymentData, details, t);
+
+      const newTotalPaid = totalPaid + data.amount;
+      const isFullyPaid = newTotalPaid >= totalAmount;
+
+      if (isFullyPaid) {
+        await this.createStatusHistoryEntry(
+          purchaseOrderId,
+          'paid',
+          userId,
+          t
+        );
+
+        const hasAllStatuses = await this.hasAllStatusesInHistory(
+          purchaseOrderId,
+          ['approved', 'received', 'paid'],
+          t
+        );
+        if (hasAllStatuses) {
+          await this.closePurchaseOrder(purchaseOrderId, order, userId, t);
+        }
+      }
+
+      await t.commit();
+      return this.toPaymentResponse(payment);
+    } catch (error) {
+      await t.rollback();
+      throw error;
+    }
   }
 
   static async deletePayment(paymentId: string, userId: string): Promise<void> {

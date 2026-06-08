@@ -1,7 +1,7 @@
 /**
  * Purchase Order DTOs
  */
-export type PurchaseOrderStatus = 'draft' | 'pending' | 'approved' | 'received' | 'cancelled';
+export type PurchaseOrderStatus = 'draft' | 'pending' | 'approved' | 'received' | 'cancelled' | 'closed';
 
 export interface PurchaseOrderItemResponse {
     id: string;

@@ -27,7 +27,8 @@ import {
     createPurchaseOrderValidator,
     updatePurchaseOrderValidator,
     receivePurchaseOrderValidator,
-    updateStatusValidator
+    updateStatusValidator,
+    deletePurchaseOrderItemValidator
 } from '../validators/inventory-validators/purchase-order-validator';
 import {
     createPaymentValidator,
@@ -76,6 +77,7 @@ router.get('/purchase-orders/po-number/:poNumber', PurchaseController.getByPoNum
 router.post('/purchase-orders', createPurchaseOrderValidator, PurchaseController.create);
 router.patch('/purchase-orders/:id/status', updateStatusValidator, PurchaseController.updateStatus);
 router.post('/purchase-orders/:id/receive', receivePurchaseOrderValidator, PurchaseController.receive);
+router.delete('/purchase-orders/:orderId/details/:detailId', deletePurchaseOrderItemValidator, PurchaseController.removeOrderDetail);
 
 // Purchase order payment routes
 router.get('/purchase-orders/:orderId/payments', orderIdValidator, PurchaseOrderPaymentController.getPaymentsByPurchaseOrder);

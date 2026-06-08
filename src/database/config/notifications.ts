@@ -137,6 +137,8 @@ export class notifications extends Model<notificationsAttributes, notificationsC
       tableName: 'notifications',
       schema: 'config',
       timestamps: true,
+      createdAt: 'created_at',
+      updatedAt: false,
       indexes: [
         {
           name: "idx_notifications_created",
