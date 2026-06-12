@@ -17,6 +17,10 @@ import { stock_movements as _stock_movements } from "./stock_movements";
 import type { stock_movementsAttributes, stock_movementsCreationAttributes } from "./stock_movements";
 import { suppliers as _suppliers } from "./suppliers";
 import type { suppliersAttributes, suppliersCreationAttributes } from "./suppliers";
+import { warehouse_dispatch_details as _warehouse_dispatch_details } from "./warehouse_dispatch_details";
+import type { warehouse_dispatch_detailsAttributes, warehouse_dispatch_detailsCreationAttributes } from "./warehouse_dispatch_details";
+import { warehouse_dispatches as _warehouse_dispatches } from "./warehouse_dispatches";
+import type { warehouse_dispatchesAttributes, warehouse_dispatchesCreationAttributes } from "./warehouse_dispatches";
 import { warehouse_stock as _warehouse_stock } from "./warehouse_stock";
 import type { warehouse_stockAttributes, warehouse_stockCreationAttributes } from "./warehouse_stock";
 import { warehouses as _warehouses } from "./warehouses";
@@ -34,6 +38,8 @@ export {
   _purchase_orders as purchase_orders,
   _stock_movements as stock_movements,
   _suppliers as suppliers,
+  _warehouse_dispatch_details as warehouse_dispatch_details,
+  _warehouse_dispatches as warehouse_dispatches,
   _warehouse_stock as warehouse_stock,
   _warehouses as warehouses,
 };
@@ -57,6 +63,10 @@ export type {
   stock_movementsCreationAttributes,
   suppliersAttributes,
   suppliersCreationAttributes,
+  warehouse_dispatch_detailsAttributes,
+  warehouse_dispatch_detailsCreationAttributes,
+  warehouse_dispatchesAttributes,
+  warehouse_dispatchesCreationAttributes,
   warehouse_stockAttributes,
   warehouse_stockCreationAttributes,
   warehousesAttributes,
@@ -73,6 +83,8 @@ export function initModels(sequelize: Sequelize) {
   const purchase_orders = _purchase_orders.initModel(sequelize);
   const stock_movements = _stock_movements.initModel(sequelize);
   const suppliers = _suppliers.initModel(sequelize);
+  const warehouse_dispatch_details = _warehouse_dispatch_details.initModel(sequelize);
+  const warehouse_dispatches = _warehouse_dispatches.initModel(sequelize);
   const warehouse_stock = _warehouse_stock.initModel(sequelize);
   const warehouses = _warehouses.initModel(sequelize);
   const users = _users.initModel(sequelize);
@@ -119,6 +131,21 @@ export function initModels(sequelize: Sequelize) {
   warehouse_stock.belongsTo(warehouses, { as: "warehouse", foreignKey: "warehouse_id" });
   warehouses.hasMany(warehouse_stock, { as: "warehouse_stocks", foreignKey: "warehouse_id" });
 
+  warehouse_dispatch_details.belongsTo(products, { as: "product", foreignKey: "product_id" });
+  products.hasMany(warehouse_dispatch_details, { as: "warehouse_dispatch_details", foreignKey: "product_id" });
+  warehouse_dispatch_details.belongsTo(warehouse_dispatches, { as: "warehouse_dispatch", foreignKey: "dispatch_id" });
+  warehouse_dispatches.hasMany(warehouse_dispatch_details, { as: "warehouse_dispatch_details", foreignKey: "dispatch_id" });
+  warehouse_dispatches.belongsTo(users, { as: "requester", foreignKey: "requester_user_id" });
+  users.hasMany(warehouse_dispatches, { as: "requested_dispatches", foreignKey: "requester_user_id" });
+  warehouse_dispatches.belongsTo(users, { as: "created_by_user", foreignKey: "created_by" });
+  users.hasMany(warehouse_dispatches, { as: "created_dispatches", foreignKey: "created_by" });
+  warehouse_dispatches.belongsTo(users, { as: "dispatched_by_user", foreignKey: "dispatched_by" });
+  users.hasMany(warehouse_dispatches, { as: "dispatched_dispatches", foreignKey: "dispatched_by" });
+  warehouse_dispatches.belongsTo(warehouses, { as: "source_warehouse", foreignKey: "source_warehouse_id" });
+  warehouses.hasMany(warehouse_dispatches, { as: "source_dispatches", foreignKey: "source_warehouse_id" });
+  warehouse_dispatches.belongsTo(warehouses, { as: "destination_warehouse", foreignKey: "destination_warehouse_id" });
+  warehouses.hasMany(warehouse_dispatches, { as: "destination_dispatches", foreignKey: "destination_warehouse_id" });
+
   return {
     product_categories: product_categories,
     products: products,
@@ -129,6 +156,8 @@ export function initModels(sequelize: Sequelize) {
     purchase_orders: purchase_orders,
     stock_movements: stock_movements,
     suppliers: suppliers,
+    warehouse_dispatch_details: warehouse_dispatch_details,
+    warehouse_dispatches: warehouse_dispatches,
     warehouse_stock: warehouse_stock,
     warehouses: warehouses,
   };

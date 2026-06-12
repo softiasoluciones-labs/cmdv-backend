@@ -6,6 +6,7 @@ import { SupplierController } from '../controllers/inventory-controllers/supplie
 import { StockMovementController } from '../controllers/inventory-controllers/stock-movement-controller';
 import { PurchaseController } from '../controllers/inventory-controllers/purchase-controller';
 import { PurchaseOrderPaymentController } from '../controllers/inventory-controllers/purchase-order-payment.controller';
+import { DispatchController } from '../controllers/inventory-controllers/dispatch-controller';
 import {
     createProductValidator,
     updateProductValidator,
@@ -35,6 +36,13 @@ import {
     paymentIdValidator,
     orderIdValidator
 } from '../validators/inventory-validators/purchase-order-payment.validator';
+import {
+    createDispatchValidator,
+    dispatchIdValidator,
+    dispatchFiltersValidator,
+    cancelDispatchValidator,
+    executeDispatchValidator
+} from '../validators/inventory-validators/dispatch-validator';
 
 const router = Router();
 
@@ -85,5 +93,15 @@ router.get('/purchase-orders/:orderId/payments/summary', orderIdValidator, Purch
 router.get('/purchase-orders/:orderId/payments/:paymentId', paymentIdValidator, PurchaseOrderPaymentController.getPaymentById);
 router.post('/purchase-orders/:orderId/payments', createPaymentValidator, PurchaseOrderPaymentController.createPayment);
 router.delete('/purchase-orders/:orderId/payments/:paymentId', paymentIdValidator, PurchaseOrderPaymentController.deletePayment);
+
+// Dispatch routes
+router.get('/dispatches', dispatchFiltersValidator, DispatchController.getAll);
+router.get('/dispatches/:id', dispatchIdValidator, DispatchController.getById);
+router.post('/dispatches', createDispatchValidator, DispatchController.create);
+router.post('/dispatches/:id/approve', dispatchIdValidator, DispatchController.approve);
+router.post('/dispatches/:id/dispatch', executeDispatchValidator, DispatchController.dispatch);
+router.post('/dispatches/:id/complete', dispatchIdValidator, DispatchController.complete);
+router.post('/dispatches/:id/cancel', cancelDispatchValidator, DispatchController.cancel);
+router.delete('/dispatches/:id', dispatchIdValidator, DispatchController.delete);
 
 export { router as inventoryRoutes };
