@@ -73,6 +73,7 @@ export class package_details extends Model<package_detailsAttributes, package_de
       tableName: 'package_details',
       schema: 'medical',
       timestamps: true,
+      updatedAt: false,
       indexes: [
         {
           name: "idx_package_details_package",

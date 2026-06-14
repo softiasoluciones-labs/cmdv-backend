@@ -19,6 +19,11 @@ export interface PackageDetailResponse {
     product_id: string;
     quantity: number;
     notes?: string;
+    product?: {
+        id: string;
+        code: string;
+        name: string;
+    };
 }
 
 export interface PackageDetailDto { 

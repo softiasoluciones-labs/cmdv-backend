@@ -23,6 +23,7 @@ import { CaseFileController } from '../controllers/medical-controllers/case-file
 import { CaseFileService } from '../services/medical-services/case-file-service';
 import { CaseFileRepository } from '../repositories/medical-repositories/case-file-repository';
 import { PackageController } from '../controllers/medical-controllers/package-controller';
+import { ServiceController } from '../controllers/medical-controllers/service-controller';
 import { ScheduledOperationController } from '../controllers/medical-controllers/scheduled-operation-controller';
 import { ScheduledOperationService } from '../services/medical-services/scheduled-operation.service';
 import { ScheduledOperationRepository } from '../repositories/medical-repositories/scheduled-operation.repository';
@@ -86,6 +87,15 @@ router.patch('/packages/:id/deactivate', PackageController.deactivate);
 router.post('/packages/:id/copy', PackageController.copyPackage);
 router.patch('/remove-item-detail/:id-detail', PackageController.removeItemDetail);
 router.put('/packages/:id', PackageController.update);
+
+// Services routes
+router.get('/services', (req, res, next) => {
+    ServiceController.getAll(req, res).catch(next);
+});
+router.get('/services/:id', ServiceController.getById);
+router.post('/services', ServiceController.create);
+router.put('/services/:id', ServiceController.update);
+router.delete('/services/:id', ServiceController.delete);
 
 // Case Files routes
 router.get('/case-files', caseFileController.getAllCaseFiles);

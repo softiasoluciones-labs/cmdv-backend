@@ -135,6 +135,7 @@ export class services extends Model<servicesAttributes, servicesCreationAttribut
       schema: 'medical',
       timestamps: true,
       underscored: true,
+      updatedAt: false,
       indexes: [
         {
           name: "services_code_key",

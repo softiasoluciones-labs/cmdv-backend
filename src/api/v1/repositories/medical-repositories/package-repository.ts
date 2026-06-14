@@ -55,6 +55,27 @@ export class PackageRepository {
         attributes: {
           exclude: ["created_by"],
         },
+        include: [
+          {
+            model: models.package_details,
+            as: "package_details",
+            attributes: [
+              "id",
+              "package_id",
+              "product_id",
+              "quantity",
+              "notes",
+              "created_at",
+            ],
+            include: [
+{
+                            model: models.products,
+                            as: "product",
+                            attributes: ["id", "code", "name", "unit_cost"],
+                        },
+            ],
+          },
+        ],
       });
 
       return { packages: rows, total: count };
@@ -69,6 +90,37 @@ static async getPackageById(packageId: string): Promise<packages> {
             where: {
                 id: packageId,
             },
+            include: [
+                {
+                    model: models.users,
+                    as: "created_by_user",
+                    attributes: ["username"],
+                },
+                {
+                    model: models.users,
+                    as: "updated_by_user",
+                    attributes: ["username"],
+                },
+                {
+                    model: models.package_details,
+                    as: "package_details",
+                    attributes: [
+                        "id",
+                        "package_id",
+                        "product_id",
+                        "quantity",
+                        "notes",
+                        "created_at",
+                    ],
+                    include: [
+                        {
+                            model: models.products,
+                            as: "product",
+                            attributes: ["id", "code", "name"],
+                        },
+                    ],
+                },
+            ],
         });
         if (!pkg) {
             throw new Error('Package not found');
@@ -267,9 +319,20 @@ static async getPackageById(packageId: string): Promise<packages> {
       where: { package_id: sourcePackageId },
     });
 
+    const MAX_CODE_LENGTH = 30;
+
+    const generateCopyCode = (originalCode: string): string => {
+      const timestamp = Date.now().toString().slice(-6);
+      const baseCode = `${originalCode}_CPY`;
+      if (baseCode.length + timestamp.length > MAX_CODE_LENGTH) {
+        return `${baseCode.slice(0, MAX_CODE_LENGTH - timestamp.length - 1)}_${timestamp}`;
+      }
+      return `${baseCode}_${timestamp}`;
+    };
+
     const newPackage = await models.packages.create({
       id: uuidv4(),
-      code: `${sourcePackage.code}_COPY_${Date.now()}`,
+      code: generateCopyCode(sourcePackage.code),
       service_id: sourcePackage.service_id,
       name: data.name,
       description: data.description ?? sourcePackage.description,
