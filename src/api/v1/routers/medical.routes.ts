@@ -37,12 +37,22 @@ import {
     teamMemberIdValidator
 } from '../validators/medical-validators/scheduled-operation.validator';
 
+import { OperationTypeController } from '../controllers/medical-controllers/operation-type-controller';
+import { OperationTypeService } from '../services/medical-services/operation-type.service';
+import { OperationTypeRepository } from '../repositories/medical-repositories/operation-type.repository';
+
+import { OperationRecordController } from '../controllers/medical-controllers/operation-record-controller';
+import { OperationRecordService } from '../services/medical-services/operation-record.service';
+import { OperationRecordRepository } from '../repositories/medical-repositories/operation-record.repository';
+
 const router = Router();
 
 const caseFileController = new CaseFileController(new CaseFileService(new CaseFileRepository()));
 const scheduledOperationController = new ScheduledOperationController(
     new ScheduledOperationService(new ScheduledOperationRepository())
 );
+const operationTypeController = new OperationTypeController();
+const operationRecordController = new OperationRecordController();
 
 // All medical routes require authentication
 router.use(authMiddleware);
@@ -120,5 +130,20 @@ router.delete('/scheduled-operations/:id', scheduledOperationIdValidator, schedu
 router.get('/scheduled-operations/:id/team', scheduledOperationIdValidator, scheduledOperationController.getTeamMembers);
 router.post('/scheduled-operations/:id/team', scheduledOperationIdValidator, addTeamMemberValidator, scheduledOperationController.addTeamMember);
 router.delete('/scheduled-operations/:id/team/:memberId', scheduledOperationIdValidator, teamMemberIdValidator, scheduledOperationController.removeTeamMember);
+
+// Operation Types routes
+router.get('/operation-types', operationTypeController.getAllOperations);
+router.get('/operation-types/:id', operationTypeController.getOperationById);
+router.post('/operation-types', operationTypeController.createOperation);
+router.put('/operation-types/:id', operationTypeController.updateOperation);
+router.delete('/operation-types/:id', operationTypeController.deleteOperation);
+
+// Operation Records routes
+router.get('/operation-records', operationRecordController.getAllRecords);
+router.get('/operation-records/:id', operationRecordController.getRecordById);
+router.get('/operation-records/scheduled/:scheduledOperationId', operationRecordController.getRecordByScheduledOperation);
+router.post('/operation-records', operationRecordController.createRecord);
+router.put('/operation-records/:id', operationRecordController.updateRecord);
+router.delete('/operation-records/:id', operationRecordController.deleteRecord);
 
 export { router as medicalRoutes };
