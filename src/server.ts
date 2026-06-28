@@ -2,20 +2,33 @@ import { App } from './app';
 import { config } from './config/config';
 import { logger } from './utils/logger';
 
-// Create app instance
 const app = new App();
+const server = app.start(config.port);
 
-// Handle uncaught exceptions
+function gracefulShutdown(signal: string): void {
+    logger.warn(`${signal} received — closing HTTP server gracefully`);
+    server.close(() => {
+        logger.info('HTTP server closed');
+        process.exit(0);
+    });
+
+    // Force exit if server doesn't close in time
+    setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+    }, 10_000).unref();
+}
+
 process.on('uncaughtException', (error: Error) => {
-    logger.error('UNCAUGHT EXCEPTION! Shutting down...', error);
+    logger.error('Uncaught exception — shutting down:', error);
     process.exit(1);
 });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason: any) => {
-    logger.error('UNHANDLED REJECTION! Shutting down...', reason);
-    process.exit(1);
+process.on('unhandledRejection', (reason: unknown) => {
+    // Log and continue — do NOT exit on unhandled rejection;
+    // a single async error should not kill all in-flight requests.
+    logger.error('Unhandled promise rejection (non-fatal):', reason);
 });
 
-// Start server
-app.start(config.port);
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

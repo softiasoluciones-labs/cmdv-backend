@@ -428,9 +428,6 @@ export class UserRepository {
         }
     }
 
-    /**
-     * Get all users with roles and permissions (método original)
-     */
     static async getListUsersWithRolesAndPermissions(): Promise<users[]> {
         try {
             const users = await models.users.findAll({
@@ -444,7 +441,8 @@ export class UserRepository {
                             }
                         ]
                     }
-                ]
+                ],
+                attributes: { exclude: ['password_hash'] }
             });
             return users;
         } catch (error) {

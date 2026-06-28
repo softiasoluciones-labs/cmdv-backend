@@ -1,31 +1,29 @@
-import dotenv from 'dotenv';
 import { Sequelize, Options } from 'sequelize';
 import { logger } from '../utils/logger';
+import { config } from './config';
 
-dotenv.config();
+const isProd = config.nodeEnv === 'production';
 
-const env = process.env.NODE_ENV || 'development';
-
-// Database configuration
 const dbConfig: Options = {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_DATABASE || 'dev-cmdv',
-    username: process.env.DB_USERNAME || 'admin',
-    password: process.env.DB_PASSWORD || 'admin123',
+    host: config.database.host,
+    port: config.database.port,
+    database: config.database.name,
+    username: config.database.user,
+    password: config.database.password,
     dialect: 'postgres',
 
-    logging: env === 'development' ? (msg) => logger.debug(msg) : false,
+    logging: !isProd ? (msg) => logger.debug(msg) : false,
 
     pool: {
-        max: env === 'production' ? 10 : 5,
-        min: env === 'production' ? 2 : 0,
+        // Keep low when using pgbouncer: it handles connection aggregation above this
+        max: config.database.poolMax,
+        min: config.database.poolMin,
         acquire: 30000,
         idle: 10000,
     },
 
     define: {
-        timestamps: true, // Using custom created_at, updated_at fields
+        timestamps: true,
         underscored: true,
         freezeTableName: true,
     },

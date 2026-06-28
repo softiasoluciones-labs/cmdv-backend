@@ -221,8 +221,6 @@ export class ScheduledOperationRepository {
         pre_operative_notes?: string;
         status?: ScheduledOperationStatus;
     }, transaction?: Transaction): Promise<scheduled_operations> {
-        const operation = await this.findById(id);
-
         const updateData: any = {};
         if (data.scheduled_date !== undefined) updateData.scheduled_date = data.scheduled_date;
         if (data.estimated_duration_minutes !== undefined) updateData.estimated_duration_minutes = data.estimated_duration_minutes;
@@ -231,34 +229,43 @@ export class ScheduledOperationRepository {
         if (data.status !== undefined) updateData.status = data.status;
 
         try {
-            await operation.update(updateData, txOpt(transaction));
-            return operation;
+            const [count] = await models.scheduled_operations.update(updateData, {
+                where: { id },
+                ...txOpt(transaction),
+            });
+            if (count === 0) throw new Error('Scheduled operation not found');
+            // Re-fetch with full associations for the response
+            return this.findById(id);
         } catch (error: any) {
             secureLogger.error('Error updating scheduled operation: ' + error);
-            throw new Error('Failed to update scheduled operation');
+            throw error instanceof Error ? error : new Error('Failed to update scheduled operation');
         }
     }
 
     async updateStatus(id: string, status: ScheduledOperationStatus, transaction?: Transaction): Promise<scheduled_operations> {
-        const operation = await this.findById(id);
-
         try {
-            await operation.update({ status }, txOpt(transaction));
-            return operation;
+            const [count] = await models.scheduled_operations.update(
+                { status },
+                { where: { id }, ...txOpt(transaction) },
+            );
+            if (count === 0) throw new Error('Scheduled operation not found');
+            return this.findById(id);
         } catch (error: any) {
             secureLogger.error('Error updating scheduled operation status: ' + error);
-            throw new Error('Failed to update scheduled operation status');
+            throw error instanceof Error ? error : new Error('Failed to update scheduled operation status');
         }
     }
 
     async delete(id: string, transaction?: Transaction): Promise<void> {
-        const operation = await this.findById(id);
-
         try {
-            await operation.destroy(txOpt(transaction));
+            const count = await models.scheduled_operations.destroy({
+                where: { id },
+                ...txOpt(transaction),
+            });
+            if (count === 0) throw new Error('Scheduled operation not found');
         } catch (error: any) {
             secureLogger.error('Error deleting scheduled operation: ' + error);
-            throw new Error('Failed to delete scheduled operation');
+            throw error instanceof Error ? error : new Error('Failed to delete scheduled operation');
         }
     }
 

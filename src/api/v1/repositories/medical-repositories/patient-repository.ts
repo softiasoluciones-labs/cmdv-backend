@@ -15,13 +15,15 @@ export class PatientRepository {
         const year = new Date().getFullYear();
         const prefix = `PAT-${year}-`;
 
+        // Order by file_number DESC so the last sequence is always first (zero-padded format guarantees correct sort)
         const lastPatient = await models.patients.findOne({
             where: {
                 file_number: {
                     [Op.like]: `${prefix}%`
                 }
             },
-            order: [['created_at', 'DESC']]
+            attributes: ['file_number'],
+            order: [['file_number', 'DESC']]
         });
 
         let sequence = 1;

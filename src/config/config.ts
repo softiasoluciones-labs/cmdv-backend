@@ -7,20 +7,20 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
   database: {
-    url: process.env.DATABASE_URL || `postgresql://${process.env.DATABASE_USER}:${process.env.DATABASE_PASSWORD}@${process.env.DATABASE_HOST}:${process.env.DATABASE_PORT}/${process.env.DATABASE_NAME}`,
-    host: process.env.DATABASE_HOST,
-    port: parseInt(process.env.DATABASE_PORT || '5432'),
-    name: process.env.DATABASE_NAME,
-    user: process.env.DATABASE_USER,
-    password: process.env.DATABASE_PASSWORD,
-    schema: process.env.DATABASE_SCHEMA || 'cashless',
-    ssl: process.env.DATABASE_SSL === 'true',
-    poolMin: parseInt(process.env.DATABASE_POOL_MIN || '2'),
-    poolMax: parseInt(process.env.DATABASE_POOL_MAX || '10')
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    name: process.env.DB_DATABASE || 'dev-cmdv',
+    user: process.env.DB_USERNAME || 'admin',
+    password: process.env.DB_PASSWORD || 'admin123',
+    schema: process.env.DB_SCHEMA || 'cashless',
+    ssl: process.env.DB_SSL === 'true',
+    poolMin: parseInt(process.env.DB_POOL_MIN || '2'),
+    // Keep low: pgbouncer handles connection aggregation above this layer
+    poolMax: parseInt(process.env.DB_POOL_MAX || '5'),
   },
 
   redis: {
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
+    url: process.env.REDIS_URL || '',
   },
 
   jwt: {

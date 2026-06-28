@@ -55,12 +55,11 @@ export class App {
         this.app.use(errorHandlerMiddleware);
     }
 
-    public start(port: number): void {
-        this.app.listen(port, () => {
-            logger.info(`🚀 Server is running on port ${port}`);
-            logger.info(`📚 API Documentation: http://localhost:${port}/api-docs`);
-            logger.info(`🔍 API v1: http://localhost:${port}/api/v1`);
-            logger.info(`❤️  Health check: http://localhost:${port}/health`);
+    public start(port: number): import('http').Server {
+        return this.app.listen(port, () => {
+            logger.info(`Server is running on port ${port}`);
+            logger.info(`API v1: http://localhost:${port}/api/v1`);
+            logger.info(`Health check: http://localhost:${port}/health`);
         });
     }
 }
