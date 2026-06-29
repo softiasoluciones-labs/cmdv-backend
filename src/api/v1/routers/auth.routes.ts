@@ -24,6 +24,9 @@ router.post('/login', authRateLimit, loginValidator, AuthController.login);
 // POST /api/v1/auth/refresh
 router.post('/refresh', refreshTokenValidator, AuthController.refreshToken);
 
+// POST /api/v1/auth/logout — revokes the refresh token (idempotent, public)
+router.post('/logout', AuthController.logout);
+
 // POST /api/v1/auth/forgot-password
 router.post('/forgot-password', authRateLimit, forgotPasswordValidator, AuthController.forgotPassword);
 

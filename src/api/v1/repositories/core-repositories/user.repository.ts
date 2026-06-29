@@ -303,6 +303,29 @@ export class UserRepository {
     }
 
     /**
+     * Revoke a single refresh token (used on logout and on rotation).
+     * Returns true if a row was actually revoked.
+     */
+    static async revokeRefreshToken(userId: string, refreshToken: string): Promise<boolean> {
+        try {
+            const [count] = await models.jwt_tokens.update(
+                { is_revoked: true, revoked_at: new Date() },
+                {
+                    where: {
+                        user_id: userId,
+                        refresh_token_hash: hashToken(refreshToken),
+                        is_revoked: false,
+                    },
+                }
+            );
+            return count > 0;
+        } catch (error) {
+            secureLogger.error('Error revoking refresh token:', error);
+            return false;
+        }
+    }
+
+    /**
      * Store password reset token (in-memory for now, should be in DB)
      */
     static storeResetToken(token: string, userId: string, expirationMinutes: number): void {

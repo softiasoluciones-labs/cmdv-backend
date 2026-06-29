@@ -16,6 +16,8 @@ export interface Permission {
 export interface LoginResponse {
     accessToken: string;
     refreshToken: string;
+    expiresIn: number;        // access token TTL in seconds
+    refreshExpiresIn: number; // refresh token TTL in seconds
     user: UserResponse;
 }
 
@@ -26,6 +28,9 @@ export interface RefreshTokenRequest {
 
 export interface RefreshTokenResponse {
     accessToken: string;
+    refreshToken: string;     // rotation: nuevo refresh token
+    expiresIn: number;        // access token TTL in seconds
+    refreshExpiresIn: number; // refresh token TTL in seconds
 }
 
 // Forgot Password

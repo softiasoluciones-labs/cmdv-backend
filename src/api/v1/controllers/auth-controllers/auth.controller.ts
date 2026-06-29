@@ -35,7 +35,7 @@ export class AuthController {
      * Refresh token endpoint
      * POST /api/v1/auth/refresh
      */
-    static refreshToken(req: Request, res: Response): void {
+    static async refreshToken(req: Request, res: Response): Promise<void> {
         try {
             const errors = validationResult(req);
             if (!errors.isEmpty()) {
@@ -45,7 +45,7 @@ export class AuthController {
 
             const { refreshToken } = req.body;
 
-            const result = AuthService.refreshToken(refreshToken);
+            const result = await AuthService.refreshToken(refreshToken);
 
             successResponse(res, 200, 'Token refreshed successfully', result);
         } catch (error) {
@@ -148,6 +148,25 @@ export class AuthController {
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Request failed';
             errorResponse(res, 404, message);
+        }
+    }
+
+    /**
+     * Logout: revokes the refresh token passed in the body.
+     * Public endpoint — no auth middleware required — so that a logged-out
+     * client can still call it. The action is safe because the refresh
+     * token is required and is hashed server-side.
+     */
+    static async logout(req: Request, res: Response): Promise<void> {
+        try {
+            const refreshToken = req.body?.refreshToken;
+            if (typeof refreshToken === 'string' && refreshToken.length > 0) {
+                await AuthService.logout(refreshToken);
+            }
+            successResponse(res, 200, 'Logout successful', null);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Logout failed';
+            errorResponse(res, 400, message);
         }
     }
 

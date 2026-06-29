@@ -1,8 +1,13 @@
 import { UserRepository } from '../../repositories/core-repositories/user.repository';
 import { hashPassword, comparePassword } from '../../../../utils/password.utils';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../../../utils/jwt.utils';
+import { parseJwtDurationToSeconds } from '../../../../utils/jwt-duration.utils';
+import { config } from '../../../../config/config';
 import { UserResponse, LoginResponse, RefreshTokenResponse, ForgotPasswordResponse, UserCreateByAdminRequest, Permission } from '../../dtos/core-dtos/auth.dtos';
 import { users, usersCreationAttributes } from '../../../../database/core/users';
+
+const ACCESS_TTL_SECONDS = parseJwtDurationToSeconds(config.jwt.expiresIn);
+const REFRESH_TTL_SECONDS = parseJwtDurationToSeconds(config.jwt.refreshExpiresIn);
 
 /**
  * Authentication Service - handles business logic
@@ -57,11 +62,7 @@ export class AuthService {
         const accessToken = generateAccessToken(user.id, user.email);
         const refreshToken = generateRefreshToken(user.id, user.email);
 
-        const accessExpiresAt = new Date();
-        accessExpiresAt.setDate(accessExpiresAt.getDate() + 7);
-
-        const refreshExpiresAt = new Date();
-        refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 30);
+        const refreshExpiresAt = new Date(Date.now() + REFRESH_TTL_SECONDS * 1000);
 
         await UserRepository.storeRefreshToken(user.id, refreshToken, refreshExpiresAt);
         await UserRepository.updateLastLogin(user.id);
@@ -71,31 +72,59 @@ export class AuthService {
         return {
             accessToken,
             refreshToken,
+            expiresIn: ACCESS_TTL_SECONDS,
+            refreshExpiresIn: REFRESH_TTL_SECONDS,
             user: this.toUserResponse(user, permissions)
         };
     }
 
     /**
-     * Refresh access token using refresh token
+     * Refresh access token using refresh token.
+     * Implements refresh-token rotation: the old refresh token is revoked
+     * and a new pair (access + refresh) is issued.
      */
-    static async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
+    static async refreshToken(oldRefreshToken: string): Promise<RefreshTokenResponse> {
         try {
-            // Verify the refresh token
-            const decoded = verifyRefreshToken(refreshToken);
+            const decoded = verifyRefreshToken(oldRefreshToken);
 
-            // Verify token exists in database and is not revoked
-            const isValid = await UserRepository.verifyRefreshToken(decoded.userId, refreshToken);
-
+            const isValid = await UserRepository.verifyRefreshToken(decoded.userId, oldRefreshToken);
             if (!isValid) {
                 throw new Error('Invalid refresh token');
             }
 
-            // Generate new access token
-            const accessToken = generateAccessToken(decoded.userId, decoded.email);
+            // Rotation: revoke the old token
+            await UserRepository.revokeRefreshToken(decoded.userId, oldRefreshToken);
 
-            return { accessToken };
+            // Issue a fresh pair
+            const accessToken = generateAccessToken(decoded.userId, decoded.email);
+            const refreshToken = generateRefreshToken(decoded.userId, decoded.email);
+
+            const refreshExpiresAt = new Date(Date.now() + REFRESH_TTL_SECONDS * 1000);
+            await UserRepository.storeRefreshToken(decoded.userId, refreshToken, refreshExpiresAt);
+
+            return {
+                accessToken,
+                refreshToken,
+                expiresIn: ACCESS_TTL_SECONDS,
+                refreshExpiresIn: REFRESH_TTL_SECONDS,
+            };
         } catch (error) {
             throw new Error('Invalid or expired refresh token');
+        }
+    }
+
+    /**
+     * Logout: revoke the given refresh token. Idempotent — if the token
+     * doesn't exist or is already revoked, the call still succeeds.
+     */
+    static async logout(refreshToken: string): Promise<void> {
+        if (!refreshToken) return;
+        try {
+            const decoded = verifyRefreshToken(refreshToken);
+            await UserRepository.revokeRefreshToken(decoded.userId, refreshToken);
+        } catch {
+            // Silently ignore invalid tokens on logout — the client is
+            // discarding its own cookies anyway.
         }
     }
 
