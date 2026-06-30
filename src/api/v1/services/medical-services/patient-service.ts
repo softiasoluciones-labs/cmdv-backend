@@ -180,7 +180,8 @@ export class PatientService {
         if (!updated) throw new Error('Failed to update patient');
 
         const updatedPatient = await PatientRepository.findById(id);
-        return this.toPatientResponse(updatedPatient!);
+        if (!updatedPatient) throw new Error('Patient not found');
+        return this.toPatientResponse(updatedPatient);
     }
 
     /**

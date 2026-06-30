@@ -71,6 +71,7 @@ export class DispatchService {
 
     static async getDispatchById(id: string): Promise<DispatchResponse> {
         const dispatch = await DispatchRepository.findById(id);
+        if (!dispatch) throw new Error('Dispatch not found');
         return this.toDispatchResponse(dispatch);
     }
 
@@ -113,6 +114,7 @@ export class DispatchService {
 
     static async approveDispatch(id: string, userId?: string): Promise<DispatchResponse> {
         const dispatch = await DispatchRepository.findById(id);
+        if (!dispatch) throw new Error('Dispatch not found');
 
         if (dispatch.status !== 'pending') {
             throw new Error(`Cannot approve dispatch in status: ${dispatch.status}`);
@@ -132,6 +134,7 @@ export class DispatchService {
 
     static async dispatchDispatch(id: string, userId?: string, notes?: string): Promise<DispatchResponse> {
         const dispatch = await DispatchRepository.findById(id);
+        if (!dispatch) throw new Error('Dispatch not found');
 
         if (dispatch.status !== 'approved') {
             throw new Error(`Cannot dispatch in status: ${dispatch.status}`);
@@ -178,6 +181,7 @@ export class DispatchService {
             await transaction.commit();
 
             const updated = await DispatchRepository.findById(id);
+            if (!updated) throw new Error('Dispatch not found');
             return this.toDispatchResponse(updated);
         } catch (error) {
             await transaction.rollback();
@@ -187,6 +191,7 @@ export class DispatchService {
 
     static async completeDispatch(id: string): Promise<DispatchResponse> {
         const dispatch = await DispatchRepository.findById(id);
+        if (!dispatch) throw new Error('Dispatch not found');
 
         if (dispatch.status !== 'dispatched') {
             throw new Error(`Cannot complete dispatch in status: ${dispatch.status}`);
@@ -198,6 +203,7 @@ export class DispatchService {
 
     static async cancelDispatch(id: string, notes?: string): Promise<DispatchResponse> {
         const dispatch = await DispatchRepository.findById(id);
+        if (!dispatch) throw new Error('Dispatch not found');
 
         if (['dispatched', 'completed', 'cancelled'].includes(dispatch.status)) {
             throw new Error(`Cannot cancel dispatch in status: ${dispatch.status}`);
@@ -209,6 +215,7 @@ export class DispatchService {
 
     static async deleteDispatch(id: string): Promise<void> {
         const dispatch = await DispatchRepository.findById(id);
+        if (!dispatch) throw new Error('Dispatch not found');
 
         if (dispatch.status !== 'pending') {
             throw new Error(`Cannot delete dispatch in status: ${dispatch.status}. Only pending dispatches can be deleted.`);

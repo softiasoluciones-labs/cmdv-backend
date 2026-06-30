@@ -22,7 +22,7 @@ export class UserRepository {
     /**
      * Find user by email
      */
-    static async findByEmail(email: string): Promise<users> {
+    static async findByEmail(email: string): Promise<users | null> {
         try {
             const user = await models.users.findOne({
                 where: {
@@ -34,10 +34,7 @@ export class UserRepository {
                     ]
                 }
             });
-            if (!user) {
-                throw new Error('User not found');
-            }
-            return user;
+            return user ?? null;
         } catch (error) {
             secureLogger.error('Error finding user by email:', error);
             throw new Error('Error finding user by email');
@@ -47,13 +44,10 @@ export class UserRepository {
     /**
      * Find user by ID
      */
-    static async findById(userId: string): Promise<users> {
+    static async findById(userId: string): Promise<users | null> {
         try {
             const user = await models.users.findByPk(userId);
-            if (!user) {
-                throw new Error('User not found');
-            }
-            return user;
+            return user ?? null;
         } catch (error) {
             secureLogger.error('Error finding user by ID:', error);
             throw new Error('Error finding user by ID');
@@ -63,15 +57,12 @@ export class UserRepository {
     /**
      * Find user by username
      */
-    static async findByUsername(username: string): Promise<users> {
+    static async findByUsername(username: string): Promise<users | null> {
         try {
             const user = await models.users.findOne({
                 where: { username, is_active: true }
             });
-            if (!user) {
-                throw new Error('User not found');
-            }
-            return user;
+            return user ?? null;
         } catch (error) {
             secureLogger.error('Error finding user by username:', error);
             throw new Error('Error finding user by username');

@@ -37,12 +37,13 @@ export class AuthService {
      * Login user with email and password
      */
     static async login(email: string, password: string): Promise<LoginResponse> {
-        let user: users;
+        let user: users | null;
         try {
             user = await UserRepository.findByEmail(email);
         } catch (error) {
             throw new Error('Invalid credentials');
         }
+        if (!user) throw new Error('Invalid credentials');
 
         const isPasswordValid = await comparePassword(password, user.password_hash);
         if (!isPasswordValid) {
@@ -194,12 +195,13 @@ export class AuthService {
         currentPassword: string,
         newPassword: string
     ): Promise<void> {
-        let user: users;
+        let user: users | null;
         try {
             user = await UserRepository.findById(userId);
         } catch (error) {
             throw new Error('User not found');
         }
+        if (!user) throw new Error('User not found');
 
         const isPasswordValid = await comparePassword(currentPassword, user.password_hash);
 
@@ -220,12 +222,13 @@ export class AuthService {
      * Get current user info
      */
     static async getCurrentUser(userId: string): Promise<UserResponse> {
-        let user: users;
+        let user: users | null;
         try {
             user = await UserRepository.findById(userId);
         } catch (error) {
             throw new Error('User not found');
         }
+        if (!user) throw new Error('User not found');
 
         return this.toUserResponse(user);
     }

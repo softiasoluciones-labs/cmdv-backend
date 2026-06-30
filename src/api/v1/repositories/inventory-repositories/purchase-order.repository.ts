@@ -89,7 +89,7 @@ export class PurchaseOrderRepository {
     static async findById(
         id: string,
         options: { transaction?: Transaction; lock?: boolean } = {}
-    ): Promise<purchase_orders> {
+    ): Promise<purchase_orders | null> {
         try {
             const findOptions: Record<string, unknown> = {
                 include: [
@@ -125,14 +125,8 @@ export class PurchaseOrderRepository {
             }
 
             const order = await models.purchase_orders.findByPk(id, findOptions);
-            if (!order) {
-                throw new Error('Purchase order not found');
-            }
-            return order;
+            return order ?? null;
         } catch (error) {
-            if (error instanceof Error && error.message === 'Purchase order not found') {
-                throw error;
-            }
             secureLogger.error('Error finding purchase order by ID:', error);
             throw new Error('Error finding purchase order by ID');
         }

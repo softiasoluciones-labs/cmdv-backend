@@ -117,6 +117,7 @@ export class PurchaseOrderPaymentService {
 
   static async getPaymentSummary(purchaseOrderId: string): Promise<PaymentSummary> {
     const order = await PurchaseOrderRepository.findById(purchaseOrderId);
+    if (!order) throw new Error('Purchase order not found');
     const totalAmount = parseFloat(order.total.toString());
     const totalPaid = await PurchaseOrderPaymentRepository.getTotalPaidForOrder(purchaseOrderId);
     const payments = await PurchaseOrderPaymentRepository.findByPurchaseOrderId(purchaseOrderId);
@@ -132,6 +133,7 @@ export class PurchaseOrderPaymentService {
 
   static async getPaymentById(paymentId: string): Promise<PaymentResponse> {
     const payment = await PurchaseOrderPaymentRepository.findById(paymentId);
+    if (!payment) throw new Error('Payment not found');
     return this.toPaymentResponse(payment);
   }
 
@@ -141,6 +143,7 @@ export class PurchaseOrderPaymentService {
     data: CreatePaymentRequest
   ): Promise<PaymentResponse> {
     const order = await PurchaseOrderRepository.findById(purchaseOrderId);
+    if (!order) throw new Error('Purchase order not found');
 
     if (!['approved', 'received'].includes(order.status || '')) {
       throw new Error(`Cannot add payment to order with status '${order.status}'. Order must be approved or received.`);
@@ -229,7 +232,9 @@ export class PurchaseOrderPaymentService {
 
   static async deletePayment(paymentId: string, userId: string): Promise<void> {
     const payment = await PurchaseOrderPaymentRepository.findById(paymentId);
+    if (!payment) throw new Error('Payment not found');
     const order = await PurchaseOrderRepository.findById(payment.purchase_order_id);
+    if (!order) throw new Error('Purchase order not found');
 
     if (order.status === 'cancelled') {
       throw new Error('Cannot delete payment from a cancelled order');

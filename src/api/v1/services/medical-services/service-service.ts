@@ -98,6 +98,7 @@ export class ServiceService {
         if (!updated) throw new Error('Failed to update service');
 
         const updatedService = await ServiceRepository.findById(id);
+        if (!updatedService) throw new Error('Service not found');
         return this.toServiceResponse(updatedService);
     }
 

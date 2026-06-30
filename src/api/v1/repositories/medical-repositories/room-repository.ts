@@ -52,17 +52,14 @@ export class RoomRepository {
     /**
      * Find room by ID
      */
-    static async findById(id: string): Promise<rooms> {
+    static async findById(id: string): Promise<rooms | null> {
         try {
             const room = await models.rooms.findByPk(id, {
                 attributes: {
                     exclude: ['created_by']
                 }
             });
-            if (!room) {
-                throw new Error('Room not found');
-            }
-            return room;
+            return room ?? null;
         } catch (error) {
             secureLogger.error('Error finding room by ID: ' + error);
             throw new Error('Error finding room by ID');

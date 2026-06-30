@@ -64,6 +64,7 @@ export class ProductService {
      */
     static async getProductById(id: string): Promise<ProductResponse> {
         const product = await ProductRepository.findById(id);
+        if (!product) throw new Error('Product not found');
         return this.toProductResponse(product);
     }
 
@@ -71,14 +72,8 @@ export class ProductService {
      * Create new product
      */
     static async createProduct(data: CreateProductRequest): Promise<ProductResponse> {
-        try {
-            await ProductRepository.findByCode(data.code);
-            throw new Error('Product code already exists');
-        } catch (error: any) {
-            if (error.message !== 'Product not found') {
-                throw error;
-            }
-        }
+        const existingByCode = await ProductRepository.findByCode(data.code);
+        if (existingByCode) throw new Error('Product code already exists');
 
         const productData = {
             code: data.code,
@@ -108,16 +103,11 @@ export class ProductService {
      */
     static async updateProduct(id: string, data: UpdateProductRequest): Promise<ProductResponse> {
         const product = await ProductRepository.findById(id);
+        if (!product) throw new Error('Product not found');
 
         if (data.code && data.code !== product.code) {
-            try {
-                await ProductRepository.findByCode(data.code);
-                throw new Error('Product code already exists');
-            } catch (error: any) {
-                if (error.message !== 'Product not found') {
-                    throw error;
-                }
-            }
+            const existingByCode = await ProductRepository.findByCode(data.code);
+            if (existingByCode) throw new Error('Product code already exists');
         }
 
         const updateData: Record<string, unknown> = {};
@@ -140,6 +130,7 @@ export class ProductService {
         await ProductRepository.update(id, updateData);
 
         const updatedProduct = await ProductRepository.findById(id);
+        if (!updatedProduct) throw new Error('Product not found');
         return this.toProductResponse(updatedProduct);
     }
 

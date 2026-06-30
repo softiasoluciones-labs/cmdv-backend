@@ -1,5 +1,6 @@
 import winston from "winston";
 import path from "path";
+import LokiTransport from "winston-loki";
 
 const levels = { 
     error: 0,
@@ -33,7 +34,7 @@ const format = winston.format.combine(
   ),
 );
 
-const transports = [    
+const transports: winston.transport[] = [
   new winston.transports.Console(),
   new winston.transports.File({
     filename: path.join('logs', 'error.log'),
@@ -50,7 +51,19 @@ const transports = [
       winston.format.json()
     ),
   }),
-]; 
+];
+
+if (process.env.LOKI_HOST) {
+  transports.push(
+    new LokiTransport({
+      host: process.env.LOKI_HOST,
+      labels: { app: 'cmdv-backend', env: process.env.NODE_ENV || 'development' },
+      json: true,
+      format: winston.format.json(),
+      onConnectionError: (err: Error) => console.error('Loki connection error:', err.message),
+    })
+  );
+}
 
 export const logger = winston.createLogger({
     level: level(),

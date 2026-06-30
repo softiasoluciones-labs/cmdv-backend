@@ -90,7 +90,7 @@ export class ProductRepository {
     /**
      * Find product by ID
      */
-    static async findById(id: string): Promise<products> {
+    static async findById(id: string): Promise<products | null> {
         try {
             const product = await models.products.findByPk(id, {
                 include: [{
@@ -99,10 +99,7 @@ export class ProductRepository {
                     attributes: ['id', 'name', 'code']
                 }]
             });
-            if (!product) {
-                throw new Error('Product not found');
-            }
-            return product;
+            return product ?? null;
         } catch (error) {
             secureLogger.error('Error finding product by ID:', error);
             throw new Error('Error finding product by ID');
@@ -112,7 +109,7 @@ export class ProductRepository {
     /**
      * Find product by code
      */
-    static async findByCode(code: string): Promise<products> {
+    static async findByCode(code: string): Promise<products | null> {
         try {
             const product = await models.products.findOne({
                 where: { code },
@@ -122,10 +119,7 @@ export class ProductRepository {
                     attributes: ['id', 'name', 'code']
                 }]
             });
-            if (!product) {
-                throw new Error('Product not found');
-            }
-            return product;
+            return product ?? null;
         } catch (error) {
             secureLogger.error('Error finding product by code:', error);
             throw new Error('Error finding product by code');

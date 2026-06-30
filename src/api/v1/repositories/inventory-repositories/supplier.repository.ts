@@ -30,13 +30,10 @@ export class SupplierRepository {
     /**
      * Find supplier by ID
      */
-    static async findById(id: string): Promise<suppliers> {
+    static async findById(id: string): Promise<suppliers | null> {
         try {
             const supplier = await models.suppliers.findByPk(id);
-            if (!supplier) {
-                throw new Error('Supplier not found');
-            }
-            return supplier;
+            return supplier ?? null;
         } catch (error) {
             secureLogger.error('Error finding supplier by ID: ' + error);
             throw new Error('Error finding supplier by ID');
@@ -46,15 +43,12 @@ export class SupplierRepository {
     /**
      * Find supplier by code
      */
-    static async findByCode(code: string): Promise<suppliers> {
+    static async findByCode(code: string): Promise<suppliers | null> {
         try {
             const supplier = await models.suppliers.findOne({
                 where: { code }
             });
-            if (!supplier) {
-                throw new Error('Supplier not found');
-            }
-            return supplier;
+            return supplier ?? null;
         } catch (error) {
             secureLogger.error('Error finding supplier by code:', error);
             throw new Error('Error finding supplier by code');

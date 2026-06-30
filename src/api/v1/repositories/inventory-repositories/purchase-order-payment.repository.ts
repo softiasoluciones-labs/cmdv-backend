@@ -48,7 +48,7 @@ export class PurchaseOrderPaymentRepository {
     }
   }
 
-  static async findById(id: string): Promise<purchase_order_payments> {
+  static async findById(id: string): Promise<purchase_order_payments | null> {
     try {
       const payment = await models.purchase_order_payments.findByPk(id, {
         include: [{
@@ -56,10 +56,7 @@ export class PurchaseOrderPaymentRepository {
           as: 'purchase_order_payment_details'
         }]
       });
-      if (!payment) {
-        throw new Error('Payment not found');
-      }
-      return payment;
+      return payment ?? null;
     } catch (error) {
       secureLogger.error('Error finding payment by ID:', error);
       throw new Error('Error finding payment by ID');

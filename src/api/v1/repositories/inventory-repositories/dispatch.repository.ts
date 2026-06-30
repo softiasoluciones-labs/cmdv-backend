@@ -89,7 +89,7 @@ export class DispatchRepository {
         }
     }
 
-    static async findById(id: string): Promise<warehouse_dispatches> {
+    static async findById(id: string): Promise<warehouse_dispatches | null> {
         try {
             const dispatch = await models.warehouse_dispatches.findByPk(id, {
                 include: [
@@ -132,7 +132,7 @@ export class DispatchRepository {
                 ]
             });
             if (!dispatch) {
-                throw new Error('Dispatch not found');
+                return null;
             }
             return dispatch;
         } catch (error) {

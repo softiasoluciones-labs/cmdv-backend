@@ -90,17 +90,14 @@ export class PatientRepository {
     /**
      * Find patient by ID
      */
-    static async findById(id: string): Promise<patients> {
+    static async findById(id: string): Promise<patients | null> {
         try {
             const patient = await models.patients.findByPk(id, {
                 attributes: {
                     exclude: ['created_by']
                 }
             });
-            if (!patient) {
-                throw new Error('Patient not found');
-            }
-            return patient;
+            return patient ?? null;
         } catch (error) {
             secureLogger.error('Error finding patient by ID: ' + error);
             throw new Error('Error finding patient by ID');
@@ -110,15 +107,12 @@ export class PatientRepository {
     /**
      * Find patient by file number
      */
-    static async findByFileNumber(fileNumber: string): Promise<patients> {
+    static async findByFileNumber(fileNumber: string): Promise<patients | null> {
         try {
             const patient = await models.patients.findOne({
                 where: { file_number: fileNumber }
             });
-            if (!patient) {
-                throw new Error('Patient not found');
-            }
-            return patient;
+            return patient ?? null;
         } catch (error) {
             secureLogger.error('Error finding patient by file number: ' + error);
             throw new Error('Error finding patient by file number');
@@ -126,17 +120,18 @@ export class PatientRepository {
     }
 
     /**
-     * Find patient by identification number
+     * Find patient by identification number.
+     *
+     * Returns `null` when no patient matches — "not found" is a normal
+     * search result, not an error. The service layer decides whether
+     * `null` means "proceed to create" or "look up by other means".
      */
-    static async findByIdentification(identificationNumber: string): Promise<patients> {
+    static async findByIdentification(identificationNumber: string): Promise<patients | null> {
         try {
             const patient = await models.patients.findOne({
                 where: { identification_number: identificationNumber }
             });
-            if (!patient) {
-                throw new Error('Patient not found');
-            }
-            return patient;
+            return patient ?? null;
         } catch (error) {
             secureLogger.error('Error finding patient by identification: ' + error);
             throw new Error('Error finding patient by identification');

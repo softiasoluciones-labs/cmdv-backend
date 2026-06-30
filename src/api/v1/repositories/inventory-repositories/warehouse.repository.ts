@@ -67,7 +67,7 @@ export class WarehouseRepository {
     /**
      * Find warehouse by ID
      */
-    static async findById(id: string): Promise<warehouses> {
+    static async findById(id: string): Promise<warehouses | null> {
         try {
             const warehouse = await models.warehouses.findByPk(id, {
                 include: [{
@@ -76,10 +76,7 @@ export class WarehouseRepository {
                     attributes: ['id', 'full_name', 'email']
                 }]
             });
-            if (!warehouse) {
-                throw new Error('Warehouse not found');
-            }
-            return warehouse;
+            return warehouse ?? null;
         } catch (error) {
             secureLogger.error('Error finding warehouse by ID:' + error);
             throw new Error('Error finding warehouse by ID');
@@ -89,15 +86,12 @@ export class WarehouseRepository {
     /**
      * Find warehouse by code
      */
-    static async findByCode(code: string): Promise<warehouses> {
+    static async findByCode(code: string): Promise<warehouses | null> {
         try {
             const warehouse = await models.warehouses.findOne({
                 where: { code }
             });
-            if (!warehouse) {
-                throw new Error('Warehouse not found');
-            }
-            return warehouse;
+            return warehouse ?? null;
         } catch (error) {
             secureLogger.error('Error finding warehouse by code:', error);
             throw new Error('Error finding warehouse by code');

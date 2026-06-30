@@ -1,8 +1,9 @@
 import Express, { Application } from 'express';
 import { logger } from './utils/logger';
 import { routes } from './api/index';
-import { errorHandlerMiddleware, loggerMiddleware, corsMiddleware, helmetMiddleware } from './middleware';
+import { errorHandlerMiddleware, loggerMiddleware, corsMiddleware, helmetMiddleware, metricsMiddleware } from './middleware';
 import { connectDatabase } from './config/sequelize';
+import { register } from './utils/metrics';
 
 export class App {
     public app: Application;
@@ -35,6 +36,9 @@ export class App {
 
         // Logging
         this.app.use(loggerMiddleware);
+
+        // Metrics collection
+        this.app.use(metricsMiddleware);
     }
 
     private initializeRoutes(): void {
@@ -48,6 +52,12 @@ export class App {
                 timestamp: new Date().toISOString(),
                 versions: ['v1']
             });
+        });
+
+        // Prometheus metrics endpoint
+        this.app.get('/metrics', async (req, res) => {
+            res.set('Content-Type', register.contentType);
+            res.end(await register.metrics());
         });
     }
 

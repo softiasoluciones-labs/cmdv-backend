@@ -60,7 +60,7 @@ export class ServiceRepository {
     /**
      * Find service by ID
      */
-    static async findById(id: string): Promise<services> {
+    static async findById(id: string): Promise<services | null> {
         try {
             const service = await models.services.findByPk(id, {
                 include: [{
@@ -69,10 +69,7 @@ export class ServiceRepository {
                     attributes: ['id', 'name', 'code']
                 }]
             });
-            if (!service) {
-                throw new Error('Service not found');
-            }
-            return service;
+            return service ?? null;
         } catch (error) {
             secureLogger.error('Error finding service by ID: ' + error);
             throw new Error('Error finding service by ID');
@@ -82,15 +79,12 @@ export class ServiceRepository {
     /**
      * Find service by code
      */
-    static async findByCode(code: string): Promise<services> {
+    static async findByCode(code: string): Promise<services | null> {
         try {
             const service = await models.services.findOne({
                 where: { code }
             });
-            if (!service) {
-                throw new Error('Service not found');
-            }
-            return service;
+            return service ?? null;
         } catch (error) {
             secureLogger.error('Error finding service by code: ' + error);
             throw new Error('Error finding service by code');

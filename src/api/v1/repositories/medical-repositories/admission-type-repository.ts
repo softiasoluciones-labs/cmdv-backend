@@ -34,25 +34,19 @@ export class AdmissionTypeRepository {
     /**
      * Find admission type by ID
      */
-    static async findById(id: string): Promise<admission_types> {
+    static async findById(id: string): Promise<admission_types | null> {
         const type = await models.admission_types.findByPk(id);
-        if (!type) {
-            throw new Error('Admission type not found');
-        }
-        return type;
+        return type ?? null;
     }
 
     /**
      * Find admission type by code
      */
-    static async findByCode(code: string): Promise<admission_types> {
+    static async findByCode(code: string): Promise<admission_types | null> {
         const type = await models.admission_types.findOne({
             where: { code }
         });
-        if (!type) {
-            throw new Error('Admission type not found');
-        }
-        return type;
+        return type ?? null;
     }
 
     /**

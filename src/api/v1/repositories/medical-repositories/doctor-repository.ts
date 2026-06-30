@@ -70,7 +70,7 @@ export class DoctorRepository {
     /**
      * Find doctor by ID
      */
-    static async findById(id: string): Promise<doctors> {
+    static async findById(id: string): Promise<doctors | null> {
         try {
             const doctor = await models.doctors.findByPk(id, {
                 include: [
@@ -88,10 +88,7 @@ export class DoctorRepository {
                     }
                 ]
             });
-            if (!doctor) {
-                throw new Error('Doctor not found');
-            }
-            return doctor;
+            return doctor ?? null;
         } catch (error) {
             secureLogger.error('Error finding doctor by ID: ' + error);
             throw new Error('Error finding doctor by ID');
@@ -101,15 +98,12 @@ export class DoctorRepository {
     /**
      * Find doctor by medical license
      */
-    static async findByMedicalLicense(medicalLicense: string): Promise<doctors> {
+    static async findByMedicalLicense(medicalLicense: string): Promise<doctors | null> {
         try {
             const doctor = await models.doctors.findOne({
                 where: { medical_license: medicalLicense }
             });
-            if (!doctor) {
-                throw new Error('Doctor not found');
-            }
-            return doctor;
+            return doctor ?? null;
         } catch (error) {
             secureLogger.error('Error finding doctor by medical license: ' + error);
             throw new Error('Error finding doctor by medical license');
@@ -119,15 +113,12 @@ export class DoctorRepository {
     /**
      * Find doctor by identification number
      */
-    static async findByIdentification(identificationNumber: string): Promise<doctors> {
+    static async findByIdentification(identificationNumber: string): Promise<doctors | null> {
         try {
             const doctor = await models.doctors.findOne({
                 where: { identification_number: identificationNumber }
             });
-            if (!doctor) {
-                throw new Error('Doctor not found');
-            }
-            return doctor;
+            return doctor ?? null;
         } catch (error) {
             secureLogger.error('Error finding doctor by identification: ' + error);
             throw new Error('Error finding doctor by identification');
@@ -160,7 +151,9 @@ export class DoctorRepository {
                 throw new Error('Doctor not found');
             }
 
-            return await this.findById(id);
+            const updated = await this.findById(id);
+            if (!updated) throw new Error('Doctor not found');
+            return updated;
         } catch (error) {
             secureLogger.error('Error updating doctor: ' + error);
             throw new Error('Error updating doctor');

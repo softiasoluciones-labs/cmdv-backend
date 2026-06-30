@@ -226,6 +226,7 @@ export class PurchaseOrderService {
         const transaction = await sequelize.transaction();
         try {
             const order = await PurchaseOrderRepository.findById(orderId, { transaction });
+            if (!order) throw new Error('Purchase order not found');
 
             if (order.status !== 'draft') {
                 throw new Error(`No se puede eliminar detalles de una orden en estado "${order.status}". Solo se permiten eliminaciones en estado "borrador"`);
