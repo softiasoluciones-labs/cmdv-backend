@@ -22,6 +22,9 @@ import { AdmissionTypeController } from '../controllers/medical-controllers/admi
 import { CaseFileController } from '../controllers/medical-controllers/case-file-controller';
 import { CaseFileService } from '../services/medical-services/case-file-service';
 import { CaseFileRepository } from '../repositories/medical-repositories/case-file-repository';
+import { CaseProductController } from '../controllers/medical-controllers/case-product-controller';
+import { CaseProductService } from '../services/medical-services/case-product.service';
+import { CaseProductRepository } from '../repositories/medical-repositories/case-product.repository';
 import { PackageController } from '../controllers/medical-controllers/package-controller';
 import { ServiceController } from '../controllers/medical-controllers/service-controller';
 import { ScheduledOperationController } from '../controllers/medical-controllers/scheduled-operation-controller';
@@ -48,6 +51,7 @@ import { OperationRecordRepository } from '../repositories/medical-repositories/
 const router = Router();
 
 const caseFileController = new CaseFileController(new CaseFileService(new CaseFileRepository()));
+const caseProductController = new CaseProductController(new CaseProductService(new CaseProductRepository()));
 const scheduledOperationController = new ScheduledOperationController(
     new ScheduledOperationService(new ScheduledOperationRepository())
 );
@@ -118,6 +122,12 @@ router.post('/case-files', caseFileController.createCaseFile);
 router.put('/case-files/:id', caseFileController.updateCaseFile);
 router.patch('/case-files/:id/status', caseFileController.updateCaseStatus);
 router.delete('/case-files/:id', caseFileController.deleteCaseFile);
+
+// Case Products (insumos y medicamentos por expediente)
+router.get('/case-files/:caseFileId/products', caseProductController.getProductsByCaseFile);
+router.post('/case-files/:caseFileId/products', caseProductController.applyProduct);
+router.patch('/case-products/:id/void', caseProductController.voidProduct);
+router.get('/case-files/:caseFileId/billing-summary', caseProductController.getBillingSummary);
 
 // Scheduled Operations routes
 router.get('/scheduled-operations', scheduledOperationListValidator, scheduledOperationController.getAllOperations);

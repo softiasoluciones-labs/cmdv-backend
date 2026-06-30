@@ -9,6 +9,8 @@ import { case_package_assignments as _case_package_assignments } from "./case_pa
 import type { case_package_assignmentsAttributes, case_package_assignmentsCreationAttributes } from "./case_package_assignments";
 import { case_rooms as _case_rooms } from "./case_rooms";
 import type { case_roomsAttributes, case_roomsCreationAttributes } from "./case_rooms";
+import { case_products as _case_products } from "./case_products";
+import type { case_productsAttributes, case_productsCreationAttributes } from "./case_products";
 import { case_services as _case_services } from "./case_services";
 import type { case_servicesAttributes, case_servicesCreationAttributes } from "./case_services";
 import { case_status_history as _case_status_history } from "./case_status_history";
@@ -47,12 +49,15 @@ import { specialties as _specialties } from "./specialties";
 import type { specialtiesAttributes, specialtiesCreationAttributes } from "./specialties";
 import { users } from "../core/users";
 import { products } from "../inventory/products";
+import { warehouses } from "../inventory/warehouses";
+import { stock_movements } from "../inventory/stock_movements";
 
 export {
   _admission_types as admission_types,
   _case_doctors as case_doctors,
   _case_files as case_files,
   _case_package_assignments as case_package_assignments,
+  _case_products as case_products,
   _case_rooms as case_rooms,
   _case_services as case_services,
   _case_status_history as case_status_history,
@@ -83,6 +88,8 @@ export type {
   case_filesCreationAttributes,
   case_package_assignmentsAttributes,
   case_package_assignmentsCreationAttributes,
+  case_productsAttributes,
+  case_productsCreationAttributes,
   case_roomsAttributes,
   case_roomsCreationAttributes,
   case_servicesAttributes,
@@ -127,12 +134,15 @@ export function initModels(sequelize: Sequelize) {
   // Initialize external models first
   const usersModel = users.initModel(sequelize);
   const productsModel = products.initModel(sequelize);
+  const warehousesModel = warehouses.initModel(sequelize);
+  const stockMovementsModel = stock_movements.initModel(sequelize);
 
   // Initialize medical schema models
   const admission_types = _admission_types.initModel(sequelize);
   const case_doctors = _case_doctors.initModel(sequelize);
   const case_files = _case_files.initModel(sequelize);
   const case_package_assignments = _case_package_assignments.initModel(sequelize);
+  const case_products = _case_products.initModel(sequelize);
   const case_rooms = _case_rooms.initModel(sequelize);
   const case_services = _case_services.initModel(sequelize);
   const case_status_history = _case_status_history.initModel(sequelize);
@@ -250,11 +260,23 @@ export function initModels(sequelize: Sequelize) {
   patients.belongsTo(usersModel, { as: "created_by_user", foreignKey: "created_by" });
   usersModel.hasMany(patients, { as: "patients", foreignKey: "created_by" });
 
+  // case_products associations
+  case_products.belongsTo(case_files, { as: "case_file", foreignKey: "case_file_id" });
+  case_files.hasMany(case_products, { as: "case_products", foreignKey: "case_file_id" });
+  case_products.belongsTo(productsModel, { as: "product", foreignKey: "product_id" });
+  productsModel.hasMany(case_products, { as: "case_products", foreignKey: "product_id" });
+  case_products.belongsTo(warehousesModel, { as: "warehouse", foreignKey: "warehouse_id" });
+  warehousesModel.hasMany(case_products, { as: "case_products", foreignKey: "warehouse_id" });
+  case_products.belongsTo(stockMovementsModel, { as: "stock_movement", foreignKey: "stock_movement_id" });
+  case_products.belongsTo(usersModel, { as: "applied_by_user", foreignKey: "applied_by" });
+  case_products.belongsTo(usersModel, { as: "voided_by_user", foreignKey: "voided_by" });
+
   return {
     admission_types: admission_types,
     case_doctors: case_doctors,
     case_files: case_files,
     case_package_assignments: case_package_assignments,
+    case_products: case_products,
     case_rooms: case_rooms,
     case_services: case_services,
     case_status_history: case_status_history,

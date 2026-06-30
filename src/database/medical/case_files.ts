@@ -4,6 +4,7 @@ import type { admission_types, admission_typesId } from './admission_types';
 import type { case_doctors, case_doctorsId } from './case_doctors';
 import type { case_package_assignments, case_package_assignmentsId } from './case_package_assignments';
 import type { case_rooms, case_roomsId } from './case_rooms';
+import type { case_products, case_productsId } from './case_products';
 import type { case_services, case_servicesId } from './case_services';
 import type { case_status_history, case_status_historyId } from './case_status_history';
 import type { case_timeline, case_timelineId } from './case_timeline';
@@ -110,6 +111,18 @@ export class case_files extends Model<case_filesAttributes, case_filesCreationAt
   hasCase_room!: Sequelize.HasManyHasAssociationMixin<case_rooms, case_roomsId>;
   hasCase_rooms!: Sequelize.HasManyHasAssociationsMixin<case_rooms, case_roomsId>;
   countCase_rooms!: Sequelize.HasManyCountAssociationsMixin;
+  // case_files hasMany case_products via case_file_id
+  case_products!: case_products[];
+  getCase_products!: Sequelize.HasManyGetAssociationsMixin<case_products>;
+  setCase_products!: Sequelize.HasManySetAssociationsMixin<case_products, case_productsId>;
+  addCase_product!: Sequelize.HasManyAddAssociationMixin<case_products, case_productsId>;
+  addCase_products!: Sequelize.HasManyAddAssociationsMixin<case_products, case_productsId>;
+  createCase_product!: Sequelize.HasManyCreateAssociationMixin<case_products>;
+  removeCase_product!: Sequelize.HasManyRemoveAssociationMixin<case_products, case_productsId>;
+  removeCase_products!: Sequelize.HasManyRemoveAssociationsMixin<case_products, case_productsId>;
+  hasCase_product!: Sequelize.HasManyHasAssociationMixin<case_products, case_productsId>;
+  hasCase_products!: Sequelize.HasManyHasAssociationsMixin<case_products, case_productsId>;
+  countCase_products!: Sequelize.HasManyCountAssociationsMixin;
   // case_files hasMany case_services via case_file_id
   case_services!: case_services[];
   getCase_services!: Sequelize.HasManyGetAssociationsMixin<case_services>;
