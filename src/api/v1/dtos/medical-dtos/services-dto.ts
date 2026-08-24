@@ -20,6 +20,7 @@ export interface ServicesRequest {
     requires_preparation?: boolean | undefined;
     preparation_instructions?: string | undefined;
     is_active?: boolean | undefined;
+    use_doctor_consultation_fee?: boolean | undefined;
 }
 
 export interface ServiceResponse {
@@ -35,6 +36,7 @@ export interface ServiceResponse {
     preparation_instructions?: string | undefined;
     is_active?: boolean | undefined;
     created_at?: Date | undefined;
+    use_doctor_consultation_fee?: boolean | undefined;
 }
 
 export interface ServiceListFilters {

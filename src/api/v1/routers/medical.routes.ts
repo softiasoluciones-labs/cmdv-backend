@@ -25,6 +25,15 @@ import { CaseFileRepository } from '../repositories/medical-repositories/case-fi
 import { CaseProductController } from '../controllers/medical-controllers/case-product-controller';
 import { CaseProductService } from '../services/medical-services/case-product.service';
 import { CaseProductRepository } from '../repositories/medical-repositories/case-product.repository';
+import { CaseServiceController } from '../controllers/medical-controllers/case-service-controller';
+import { CaseServiceService } from '../services/medical-services/case-service.service';
+import { CaseServiceRepository } from '../repositories/medical-repositories/case-service.repository';
+import { CaseRoomController } from '../controllers/medical-controllers/case-room-controller';
+import { CaseRoomService } from '../services/medical-services/case-room.service';
+import { CaseRoomRepository } from '../repositories/medical-repositories/case-room.repository';
+import { CasePackageAssignmentController } from '../controllers/medical-controllers/case-package-assignment-controller';
+import { CasePackageAssignmentService } from '../services/medical-services/case-package-assignment.service';
+import { CasePackageAssignmentRepository } from '../repositories/medical-repositories/case-package-assignment.repository';
 import { PackageController } from '../controllers/medical-controllers/package-controller';
 import { ServiceController } from '../controllers/medical-controllers/service-controller';
 import { ScheduledOperationController } from '../controllers/medical-controllers/scheduled-operation-controller';
@@ -52,6 +61,11 @@ const router = Router();
 
 const caseFileController = new CaseFileController(new CaseFileService(new CaseFileRepository()));
 const caseProductController = new CaseProductController(new CaseProductService(new CaseProductRepository()));
+const caseServiceController = new CaseServiceController(new CaseServiceService(new CaseServiceRepository()));
+const caseRoomController = new CaseRoomController(new CaseRoomService(new CaseRoomRepository()));
+const casePackageAssignmentController = new CasePackageAssignmentController(
+    new CasePackageAssignmentService(new CasePackageAssignmentRepository())
+);
 const scheduledOperationController = new ScheduledOperationController(
     new ScheduledOperationService(new ScheduledOperationRepository())
 );
@@ -128,6 +142,21 @@ router.get('/case-files/:caseFileId/products', caseProductController.getProducts
 router.post('/case-files/:caseFileId/products', caseProductController.applyProduct);
 router.patch('/case-products/:id/void', caseProductController.voidProduct);
 router.get('/case-files/:caseFileId/billing-summary', caseProductController.getBillingSummary);
+
+// Case Services (servicios y consultas médicas por expediente)
+router.get('/case-files/:caseFileId/services', caseServiceController.getServicesByCaseFile);
+router.post('/case-files/:caseFileId/services', caseServiceController.applyService);
+router.patch('/case-services/:id/void', caseServiceController.voidService);
+
+// Case Rooms (habitaciones por expediente)
+router.get('/case-files/:caseFileId/rooms', caseRoomController.getRoomsByCaseFile);
+router.post('/case-files/:caseFileId/rooms', caseRoomController.applyRoom);
+router.patch('/case-rooms/:id/void', caseRoomController.voidRoom);
+
+// Case Package Assignments (paquetes por expediente)
+router.get('/case-files/:caseFileId/package-assignments', casePackageAssignmentController.getPackageAssignmentsByCaseFile);
+router.post('/case-files/:caseFileId/package-assignments', casePackageAssignmentController.applyPackageAssignment);
+router.patch('/case-package-assignments/:id/void', casePackageAssignmentController.voidPackageAssignment);
 
 // Scheduled Operations routes
 router.get('/scheduled-operations', scheduledOperationListValidator, scheduledOperationController.getAllOperations);

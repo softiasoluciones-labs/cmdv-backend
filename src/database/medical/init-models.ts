@@ -193,6 +193,8 @@ export function initModels(sequelize: Sequelize) {
   doctors.hasMany(case_doctors, { as: "case_doctors", foreignKey: "doctor_id" });
   case_package_assignments.belongsTo(doctors, { as: "doctor", foreignKey: "doctor_id" });
   doctors.hasMany(case_package_assignments, { as: "case_package_assignments", foreignKey: "doctor_id" });
+  case_services.belongsTo(doctors, { as: "doctor", foreignKey: "doctor_id" });
+  doctors.hasMany(case_services, { as: "case_services", foreignKey: "doctor_id" });
   consultations.belongsTo(doctors, { as: "doctor", foreignKey: "doctor_id" });
   doctors.hasMany(consultations, { as: "consultations", foreignKey: "doctor_id" });
   lab_tests.belongsTo(doctors, { as: "ordered_by_doctor", foreignKey: "ordered_by" });

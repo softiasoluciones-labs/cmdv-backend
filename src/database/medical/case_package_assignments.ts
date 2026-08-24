@@ -17,11 +17,15 @@ export interface case_package_assignmentsAttributes {
   inventory_deducted?: boolean;
   inventory_deducted_at?: Date;
   notes?: string;
+  is_voided?: boolean;
+  voided_by?: string;
+  voided_at?: Date;
+  void_reason?: string;
 }
 
 export type case_package_assignmentsPk = "id";
 export type case_package_assignmentsId = case_package_assignments[case_package_assignmentsPk];
-export type case_package_assignmentsOptionalAttributes = "id" | "assigned_date" | "assigned_by" | "inventory_deducted" | "inventory_deducted_at" | "notes";
+export type case_package_assignmentsOptionalAttributes = "id" | "assigned_date" | "assigned_by" | "inventory_deducted" | "inventory_deducted_at" | "notes" | "is_voided" | "voided_by" | "voided_at" | "void_reason";
 export type case_package_assignmentsCreationAttributes = Optional<case_package_assignmentsAttributes, case_package_assignmentsOptionalAttributes>;
 
 export class case_package_assignments extends Model<case_package_assignmentsAttributes, case_package_assignmentsCreationAttributes> implements case_package_assignmentsAttributes {
@@ -36,6 +40,10 @@ export class case_package_assignments extends Model<case_package_assignmentsAttr
   inventory_deducted?: boolean;
   inventory_deducted_at?: Date;
   notes?: string;
+  is_voided?: boolean;
+  voided_by?: string;
+  voided_at?: Date;
+  void_reason?: string;
 
   // case_package_assignments belongsTo case_files via case_file_id
   case_file!: case_files;
@@ -126,6 +134,24 @@ export class case_package_assignments extends Model<case_package_assignmentsAttr
         allowNull: true
       },
       notes: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      is_voided: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      },
+      voided_by: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: { model: 'users', key: 'id' }
+      },
+      voided_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      void_reason: {
         type: DataTypes.TEXT,
         allowNull: true
       }

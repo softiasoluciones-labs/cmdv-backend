@@ -2,6 +2,7 @@ import * as Sequelize from 'sequelize';
 import { DataTypes, Model, Optional } from 'sequelize';
 import type { case_files, case_filesId } from './case_files';
 import type { services, servicesId } from './services';
+import type { doctors, doctorsId } from './doctors';
 import type { users, usersId } from '../core/users';
 
 export interface case_servicesAttributes {
@@ -14,11 +15,16 @@ export interface case_servicesAttributes {
   applied_at?: Date;
   notes?: string;
   applied_by?: string;
+  is_voided?: boolean;
+  voided_by?: string;
+  voided_at?: Date;
+  void_reason?: string;
+  doctor_id?: string;
 }
 
 export type case_servicesPk = "id";
 export type case_servicesId = case_services[case_servicesPk];
-export type case_servicesOptionalAttributes = "id" | "quantity" | "applied_at" | "notes" | "applied_by";
+export type case_servicesOptionalAttributes = "id" | "quantity" | "applied_at" | "notes" | "applied_by" | "is_voided" | "voided_by" | "voided_at" | "void_reason" | "doctor_id";
 export type case_servicesCreationAttributes = Optional<case_servicesAttributes, case_servicesOptionalAttributes>;
 
 export class case_services extends Model<case_servicesAttributes, case_servicesCreationAttributes> implements case_servicesAttributes {
@@ -31,6 +37,11 @@ export class case_services extends Model<case_servicesAttributes, case_servicesC
   applied_at?: Date;
   notes?: string;
   applied_by?: string;
+  is_voided?: boolean;
+  voided_by?: string;
+  voided_at?: Date;
+  void_reason?: string;
+  doctor_id?: string;
 
   // case_services belongsTo case_files via case_file_id
   case_file!: case_files;
@@ -42,6 +53,11 @@ export class case_services extends Model<case_servicesAttributes, case_servicesC
   getService!: Sequelize.BelongsToGetAssociationMixin<services>;
   setService!: Sequelize.BelongsToSetAssociationMixin<services, servicesId>;
   createService!: Sequelize.BelongsToCreateAssociationMixin<services>;
+  // case_services belongsTo doctors via doctor_id
+  doctor!: doctors;
+  getDoctor!: Sequelize.BelongsToGetAssociationMixin<doctors>;
+  setDoctor!: Sequelize.BelongsToSetAssociationMixin<doctors, doctorsId>;
+  createDoctor!: Sequelize.BelongsToCreateAssociationMixin<doctors>;
   // case_services belongsTo users via applied_by
   applied_by_user!: users;
   getApplied_by_user!: Sequelize.BelongsToGetAssociationMixin<users>;
@@ -101,6 +117,29 @@ export class case_services extends Model<case_servicesAttributes, case_servicesC
           model: 'users',
           key: 'id'
         }
+      },
+      is_voided: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+      },
+      voided_by: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: { model: 'users', key: 'id' }
+      },
+      voided_at: {
+        type: DataTypes.DATE,
+        allowNull: true
+      },
+      void_reason: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      doctor_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: { model: 'doctors', key: 'id' }
       }
     }, {
       tableName: 'case_services',

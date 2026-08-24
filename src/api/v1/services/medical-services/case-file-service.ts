@@ -395,6 +395,15 @@ export class CaseFileService {
                     doctor_name: 'Doctor', // TODO: expand doctor relation when needed
                     price_applied: parseFloat(pa.price_applied.toString())
                 }))
+            }),
+            ...(caseFile.case_services && {
+                services: caseFile.case_services.map((cs) => ({
+                    id: cs.id,
+                    service_name: cs.service?.name ?? 'Unknown',
+                    quantity: cs.quantity ?? 1,
+                    unit_price: parseFloat(cs.unit_price.toString()),
+                    total_price: parseFloat(cs.total_price.toString())
+                }))
             })
         };
     }

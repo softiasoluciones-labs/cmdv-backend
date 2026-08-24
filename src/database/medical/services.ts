@@ -17,11 +17,12 @@ export interface servicesAttributes {
   preparation_instructions?: string;
   is_active?: boolean;
   created_at?: Date;
+  use_doctor_consultation_fee?: boolean;
 }
 
 export type servicesPk = "id";
 export type servicesId = services[servicesPk];
-export type servicesOptionalAttributes = "id" | "description" | "estimated_duration_minutes" | "requires_preparation" | "preparation_instructions" | "is_active" | "created_at";
+export type servicesOptionalAttributes = "id" | "description" | "estimated_duration_minutes" | "requires_preparation" | "preparation_instructions" | "is_active" | "created_at" | "use_doctor_consultation_fee";
 export type servicesCreationAttributes = Optional<servicesAttributes, servicesOptionalAttributes>;
 
 export class services extends Model<servicesAttributes, servicesCreationAttributes> implements servicesAttributes {
@@ -36,6 +37,7 @@ export class services extends Model<servicesAttributes, servicesCreationAttribut
   preparation_instructions?: string;
   is_active?: boolean;
   created_at?: Date;
+  use_doctor_consultation_fee?: boolean;
 
   // services belongsTo service_types via service_type_id
   service_type!: service_types;
@@ -129,6 +131,11 @@ export class services extends Model<servicesAttributes, servicesCreationAttribut
         type: DataTypes.BOOLEAN,
         allowNull: true,
         defaultValue: true
+      },
+      use_doctor_consultation_fee: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
       }
     }, {
       tableName: 'services',

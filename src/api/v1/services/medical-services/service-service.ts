@@ -18,7 +18,8 @@ export class ServiceService {
             requires_preparation: service.requires_preparation,
             preparation_instructions: service.preparation_instructions,
             is_active: service.is_active,
-            created_at: service.created_at
+            created_at: service.created_at,
+            use_doctor_consultation_fee: service.use_doctor_consultation_fee
         };
 
         if (service.service_type) {

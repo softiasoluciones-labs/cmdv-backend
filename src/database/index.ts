@@ -3,6 +3,7 @@ import { initModels as initCoreModels } from './core/init-models';
 import { initModels as initInventoryModels } from './inventory/init-models';
 import { initModels as initMedicalModels } from './medical/init-models';
 import { initModels as initConfigModels } from './config/init-models';
+import { initModels as initBillingModels } from './billing/init-models';
 
 // Initialize all models
 const models = {
@@ -10,6 +11,7 @@ const models = {
     ...initInventoryModels(sequelize),
     ...initMedicalModels(sequelize),
     ...initConfigModels(sequelize),
+    ...initBillingModels(sequelize),
 };
 
 export { sequelize, models };
@@ -19,3 +21,4 @@ export * as coreModels from './core/init-models';
 export * as inventoryModels from './inventory/init-models';
 export * as medicalModels from './medical/init-models';
 export * as configModels from './config/init-models';
+export * as billingModels from './billing/init-models';

@@ -1,8 +1,10 @@
 export interface DoctorResponse {
     id: string;
     user_id?: string;
+    full_name?: string;
     medical_license: string;
     specialty_id?: string;
+    specialty_name?: string;
     doctor_type: "internal" | "external";
     consultation_fee?: number;
     surgery_fee?: number;

@@ -1,6 +1,7 @@
 import { Transaction, Op } from 'sequelize';
 import { sequelize, models } from '../../../../database';
 import { BillingSummaryResponse } from '../../dtos/medical-dtos/case-product.dto';
+import { recalculateCaseTotalCost } from './shared/recalculate-case-total-cost';
 
 function txOpt(t?: Transaction): { transaction: Transaction } | Record<string, never> {
   return t !== undefined ? { transaction: t } : {};
@@ -110,7 +111,7 @@ export class CaseProductRepository {
       }, txOpt(t));
 
       // Recalculate and update total_cost on the case file
-      await this.recalculateCaseTotalCost(data.case_file_id, t);
+      await recalculateCaseTotalCost(data.case_file_id, t);
 
       return caseProduct;
     });
@@ -144,7 +145,7 @@ export class CaseProductRepository {
         void_reason: voidReason
       }, txOpt(t));
 
-      await this.recalculateCaseTotalCost(record.case_file_id, t);
+      await recalculateCaseTotalCost(record.case_file_id, t);
 
       return record;
     });
@@ -157,14 +158,20 @@ export class CaseProductRepository {
         {
           model: models.case_package_assignments,
           as: 'case_package_assignments',
+          where: { is_voided: false },
+          required: false,
           include: [{ model: models.packages, as: 'package', attributes: ['name'] }]
         },
         {
           model: models.case_rooms,
           as: 'case_rooms',
+          where: { is_voided: false },
+          required: false,
           include: [{ model: models.rooms, as: 'room', attributes: ['room_number', 'room_type'] }]
         },
         { model: models.case_services, as: 'case_services',
+          where: { is_voided: false },
+          required: false,
           include: [{ model: models.services, as: 'service', attributes: ['name'] }]
         },
         {
@@ -246,27 +253,6 @@ export class CaseProductRepository {
       },
       total
     };
-  }
-
-  private async recalculateCaseTotalCost(caseFileId: string, t: Transaction) {
-    const [result]: any[] = await sequelize.query(`
-      SELECT
-        COALESCE((SELECT SUM(price_applied) FROM medical.case_package_assignments WHERE case_file_id = :id), 0)
-        + COALESCE((
-            SELECT SUM(
-              EXTRACT(DAY FROM (COALESCE(check_out, NOW()) - check_in)) * daily_rate
-            )
-            FROM medical.case_rooms WHERE case_file_id = :id
-          ), 0)
-        + COALESCE((SELECT SUM(total_price) FROM medical.case_services WHERE case_file_id = :id), 0)
-        + COALESCE((SELECT SUM(total_price) FROM medical.case_products WHERE case_file_id = :id AND is_voided = false), 0)
-        AS total_cost
-    `, { replacements: { id: caseFileId }, transaction: t, type: 'SELECT' as any });
-
-    await models.case_files.update(
-      { total_cost: Number(result?.total_cost ?? 0) },
-      { where: { id: caseFileId }, transaction: t }
-    );
   }
 
   private async generateMovementNumber(t: Transaction): Promise<string> {

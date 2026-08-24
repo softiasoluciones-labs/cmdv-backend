@@ -10,8 +10,10 @@ export class DoctorService {
         return {
             id: doctor.id,
             ...(doctor.user_id && { user_id: doctor.user_id }),
+            ...((doctor as any).user?.full_name && { full_name: (doctor as any).user.full_name }),
             medical_license: doctor.medical_license,
             ...(doctor.specialty_id && { specialty_id: doctor.specialty_id }),
+            ...((doctor as any).specialty?.name && { specialty_name: (doctor as any).specialty.name }),
             doctor_type: doctor.doctor_type,
             ...(doctor.consultation_fee && { consultation_fee: Number(doctor.consultation_fee) }),
             ...(doctor.surgery_fee && { surgery_fee: Number(doctor.surgery_fee) }),

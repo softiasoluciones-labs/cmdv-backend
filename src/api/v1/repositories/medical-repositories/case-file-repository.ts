@@ -74,15 +74,26 @@ export class CaseFileRepository {
                 {
                     model: models.case_rooms,
                     as: 'case_rooms',
+                    where: { is_voided: false },
+                    required: false,
                     include: [{ model: models.rooms, as: 'room', attributes: ['room_number', 'room_type'] }]
                 },
                 {
                     model: models.case_package_assignments,
                     as: 'case_package_assignments',
+                    where: { is_voided: false },
+                    required: false,
                     include: [
                         { model: models.packages, as: 'package', attributes: ['name'] },
                         { model: models.doctors, as: 'doctor', attributes: ['id'] }
                     ]
+                },
+                {
+                    model: models.case_services,
+                    as: 'case_services',
+                    where: { is_voided: false },
+                    required: false,
+                    include: [{ model: models.services, as: 'service', attributes: ['name'] }]
                 }
             ]
         });

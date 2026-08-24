@@ -144,6 +144,14 @@ export interface CaseFileResponse {
         doctor_name: string;
         price_applied: number;
     }>;
+
+    services?: Array<{
+        id: string;
+        service_name: string;
+        quantity: number;
+        unit_price: number;
+        total_price: number;
+    }>;
 }
 
 /**
